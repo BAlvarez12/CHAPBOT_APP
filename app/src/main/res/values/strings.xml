@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">MINECHAP</string>
+
     <string name="ingeniosos" translatable="false">Ingeniosos</string>
     <string name="Registrarse" translatable="false" />
     <string name="contrase_a" translatable="false">Contraseña</string>
@@ -8,4 +8,8 @@
     <string name="registrarme">registrarme</string>
     <string name="nombre_de_usuario">Nombre de usuario</string>
     <string name="Registrarme">Registrarme</string>
+    <string name="hint_nombre">Ingresa tu nombre</string>
+    <string name="btn_registrar">Registrar</string>
+    <string name="app_name">MinechapApp</string>
+    <string name="back"></string>
 </resources>

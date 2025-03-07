@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "409777701056",
+    "firebase_url": "https://minechap-7166e-default-rtdb.firebaseio.com",
+    "project_id": "minechap-7166e",
+    "storage_bucket": "minechap-7166e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:409777701056:android:68a3ca48e9b48bdacb2d25",
+        "android_client_info": {
+          "package_name": "com.example.minechapapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxHPT1Lvia6T9aLRLnNXm6JwqYGJIe1sc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -4,24 +4,37 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
+import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 
 @SuppressLint("CustomSplashScreen")
 public class SplashActivity extends AppCompatActivity {
+
+    private static final String TAG = "SplashActivity";
+    private static final int SPLASH_DURATION = 2000; // 2 segundos
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
 
-        // Temporizador para redirigir a LoginActivity después de 2 segundos
+        // Log para confirmar que se inicia la SplashActivity
+        Log.d(TAG, "onCreate: Iniciando SplashActivity...");
+
+        // (Opcional) Mensaje rápido para verificar visualmente
+        Toast.makeText(this, "Splash iniciada", Toast.LENGTH_SHORT).show();
+
+        // Temporizador de 2 segundos para pasar a Login
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
+                // Cambia 'Login.class' por la actividad que quieras iniciar
                 Intent intent = new Intent(SplashActivity.this, Login.class);
                 startActivity(intent);
-                finish(); // Cierra la SplashActivity para que no se pueda volver atrás
+                finish();
             }
-        }, 2000); // 2000 milisegundos = 2 segundos
+        }, SPLASH_DURATION);
     }
 }

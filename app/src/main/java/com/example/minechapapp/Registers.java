@@ -35,7 +35,7 @@ public class Registers extends AppCompatActivity {
         etEmail = findViewById(R.id.etEmail); // Asegúrate de que estos IDs coincidan con tu XML
         etPassword = findViewById(R.id.etPassword);
         Button btnRegister = findViewById(R.id.btnRegister);
-        progressBar = findViewById(R.id.progressBar); // Inicializar ProgressBar
+       // progressBar = findViewById(R.id.progressBar); // Inicializar ProgressBar
 
         // Configurar el botón de registro
         btnRegister.setOnClickListener(new View.OnClickListener() {

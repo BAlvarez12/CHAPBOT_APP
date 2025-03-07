@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- IMPORTANTE: permiso de internet -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -12,25 +16,30 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MinechapApp"
         tools:targetApi="31">
-        <!-- SplashActivity (Primera pantalla que se ejecuta) -->
+
+        <!-- SplashActivity (primera pantalla) -->
         <activity
             android:name=".SplashActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-        </activity> <!-- Login Activity (Segunda pantalla, después de Splash) -->
+        </activity>
+
+        <!-- Activity de login (segundo) -->
         <activity
             android:name=".Login"
-            android:exported="true" /> <!-- Registers Activity (Pantalla de registro) -->
+            android:exported="true"/>
+
+        <!-- Activity de registro -->
         <activity
-            android:name=".Registers"
-            android:exported="true" /> <!-- MainActivity (Pantalla principal, solo accesible después del login) -->
+            android:name=".RegisterActivity"
+            android:exported="true"/>
+
+        <!-- MainActivity (pantalla principal) -->
         <activity
             android:name=".MainActivity"
-            android:exported="true" />
+            android:exported="true"/>
     </application>
-
 </manifest>
