@@ -10,17 +10,17 @@
     android:background="@color/primary"
     tools:context=".RegisterActivity">
 
-    <ImageButton
+    <ImageView
         android:id="@+id/btnBack"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:contentDescription="@string/back"
-        android:background="@android:color/transparent"
-        android:padding="8dp"
-        app:srcCompat="@drawable/ic_back"
+        android:src="@drawable/ic_back"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="16dp"
+        android:clickable="true"
+        android:focusable="true"/>
 
 
     <TextView
