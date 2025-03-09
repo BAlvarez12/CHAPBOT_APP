@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.FirebaseApp;
@@ -24,15 +23,17 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         FirebaseApp.initializeApp(this);
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
         FirebaseUser user = mAuth.getCurrentUser();
+
         if (user != null) {
             String uid = user.getUid();
             Log.d(TAG, "Usuario autenticado con UID: " + uid);
-            obtenerDatosUsuario(uid);
+            verificarUsuarioEnFirestore(uid);
         } else {
             Log.e(TAG, "No hay usuario autenticado. Redirigiendo a RegisterActivity...");
             startActivity(new Intent(MainActivity.this, RegisterActivity.class));
@@ -40,22 +41,24 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void obtenerDatosUsuario(String uid) {
-        Log.d(TAG, "Intentando obtener datos del usuario en Firestore...");
+    private void verificarUsuarioEnFirestore(String uid) {
+        Log.d(TAG, "Verificando usuario en Firestore...");
 
         db.collection("usuarios").document(uid).get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        String nombre = documentSnapshot.getString("nombre");
-                        String email = documentSnapshot.getString("email");
-                        Log.d(TAG, "Datos del usuario: Nombre: " + nombre + ", Email: " + email);
-                        Toast.makeText(MainActivity.this, "Bienvenido, " + nombre, Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "Usuario encontrado en Firestore. Redirigiendo a Activity_Inicio...");
+                        startActivity(new Intent(MainActivity.this, inicioActivity.class));
+                        finish();
                     } else {
-                        Log.e(TAG, "No se encontraron datos para este usuario en Firestore.");
+                        Log.e(TAG, "Usuario no encontrado en Firestore. Redirigiendo a RegisterActivity...");
+                        startActivity(new Intent(MainActivity.this, RegisterActivity.class));
+                        finish();
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error al obtener datos del usuario desde Firestore", e);
+                    Log.e(TAG, "Error al consultar Firestore", e);
+                    Toast.makeText(MainActivity.this, "Error al obtener datos", Toast.LENGTH_SHORT).show();
                 });
     }
 }
