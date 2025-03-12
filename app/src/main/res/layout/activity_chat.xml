@@ -24,6 +24,8 @@
             android:paddingStart="8dp"
             android:paddingEnd="8dp">
 
+
+            <!-- Vista previa de imagen de perfil -->
             <ImageView
                 android:id="@+id/imgPerfilUsuario"
                 android:layout_width="40dp"
@@ -66,6 +68,20 @@
                 app:tint="@color/black" />
         </LinearLayout>
     </androidx.appcompat.widget.Toolbar>
+
+
+    <!-- Vista previa de imagen seleccionada -->
+    <ImageView
+        android:id="@+id/imgPreview"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/chatToolbar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerMensajes"
