@@ -29,6 +29,8 @@
         <activity android:name=".MainActivity" android:exported="true"/>
         <activity android:name=".inicioActivity" android:exported="true"/>
         <activity android:name=".chatActivity" android:exported="true"/>
+        <activity android:name=".UsuariosActivos" android:exported="true"/>
+
 
     </application>
 </manifest>

@@ -12,4 +12,5 @@
     <string name="btn_registrar">Registrar</string>
     <string name="app_name">MinechapApp</string>
     <string name="back"></string>
+    <string name="add_menu_desc">Botón para abrir opciones de añadir algo nuevo</string>
 </resources>

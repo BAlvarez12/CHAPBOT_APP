@@ -1,16 +1,19 @@
 package com.example.minechapapp;
-import android.os.Bundle;
-import androidx.appcompat.app.AppCompatActivity;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.PopupMenu;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 public class MainActivity extends AppCompatActivity {
@@ -20,17 +23,17 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
 
+    private ImageView btnSettings;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
 
+        setContentView(R.layout.activity_inicio);
         FirebaseApp.initializeApp(this);
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
-
         FirebaseUser user = mAuth.getCurrentUser();
-
         if (user != null) {
             String uid = user.getUid();
             Log.d(TAG, "Usuario autenticado con UID: " + uid);
@@ -48,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
         db.collection("usuarios").document(uid).get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        Log.d(TAG, "Usuario encontrado en Firestore. Redirigiendo a Activity_Inicio...");
+                        Log.d(TAG, "Usuario encontrado en Firestore. Redirigiendo a inicioActivity...");
                         startActivity(new Intent(MainActivity.this, inicioActivity.class));
                         finish();
                     } else {
