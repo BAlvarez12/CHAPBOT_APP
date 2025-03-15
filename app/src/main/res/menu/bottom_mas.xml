@@ -2,4 +2,7 @@
     <item
         android:id="@+id/menu_item_new_chat"
         android:title="Nuevo chat" />
+    <item
+        android:id="@+id/menu_item_chat_grupal"
+        android:title="Chat grupal" />
 </menu>

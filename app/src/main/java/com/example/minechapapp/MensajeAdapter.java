@@ -1,4 +1,4 @@
-package com.example.minechapapp.adapters;
+package com.example.minechapapp;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,8 +8,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
-import com.example.minechapapp.R;
-import com.example.minechapapp.models.MensajeModel;
+
 import java.util.List;
 
 public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -17,9 +16,10 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private static final int TIPO_ENVIADO = 1;
     private static final int TIPO_RECIBIDO = 2;
     private List<MensajeModel> listaMensajes;
-
-    public MensajeAdapter(List<MensajeModel> listaMensajes) {
+    private boolean esGrupal;
+    public MensajeAdapter(List<MensajeModel> listaMensajes, boolean esGrupal) {
         this.listaMensajes = listaMensajes;
+        this.esGrupal = esGrupal;
     }
 
     @Override
@@ -49,10 +49,18 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         MensajeModel mensaje = listaMensajes.get(position);
+
         if (holder.getItemViewType() == TIPO_ENVIADO) {
             SentViewHolder sentHolder = (SentViewHolder) holder;
+
+            if (esGrupal && mensaje.getNombreUsuario() != null) {
+                sentHolder.tvNombreUsuario.setVisibility(View.VISIBLE);
+                sentHolder.tvNombreUsuario.setText("Tú");
+            } else {
+                sentHolder.tvNombreUsuario.setVisibility(View.GONE);
+            }
+
             if (mensaje.tieneImagen()) {
-                // Para mensajes enviados con imagen:
                 sentHolder.tvMensaje.setVisibility(View.GONE);
                 sentHolder.imgMensaje.setVisibility(View.VISIBLE);
                 Glide.with(sentHolder.itemView.getContext())
@@ -63,29 +71,52 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 sentHolder.tvMensaje.setVisibility(View.VISIBLE);
                 sentHolder.tvMensaje.setText(mensaje.getMensaje());
             }
+
         } else {
             ReceivedViewHolder receivedHolder = (ReceivedViewHolder) holder;
-            receivedHolder.tvMensaje.setText(mensaje.getMensaje());
+
+            if (esGrupal && mensaje.getNombreUsuario() != null) {
+                receivedHolder.tvNombreUsuario.setVisibility(View.VISIBLE);
+                receivedHolder.tvNombreUsuario.setText(mensaje.getNombreUsuario());
+            } else {
+                receivedHolder.tvNombreUsuario.setVisibility(View.GONE);
+            }
+
+            if (mensaje.tieneImagen()) {
+                receivedHolder.tvMensaje.setVisibility(View.GONE);
+                receivedHolder.imgMensaje.setVisibility(View.VISIBLE);
+                Glide.with(receivedHolder.itemView.getContext())
+                        .load(mensaje.getImageUrl())
+                        .into(receivedHolder.imgMensaje);
+            } else {
+                receivedHolder.imgMensaje.setVisibility(View.GONE);
+                receivedHolder.tvMensaje.setVisibility(View.VISIBLE);
+                receivedHolder.tvMensaje.setText(mensaje.getMensaje());
+            }
         }
     }
 
     public static class SentViewHolder extends RecyclerView.ViewHolder {
-        TextView tvMensaje;
+        TextView tvMensaje, tvNombreUsuario;
         ImageView imgMensaje;
 
         public SentViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMensaje = itemView.findViewById(R.id.tvMensajeEnviado);
             imgMensaje = itemView.findViewById(R.id.imgMensajeEnviado);
+            tvNombreUsuario = itemView.findViewById(R.id.tvNombreUsuarioEnviado); // NUEVO
         }
     }
 
     public static class ReceivedViewHolder extends RecyclerView.ViewHolder {
-        TextView tvMensaje;
+        TextView tvMensaje, tvNombreUsuario;
+        ImageView imgMensaje;
 
         public ReceivedViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMensaje = itemView.findViewById(R.id.tvMensajeRecibido);
+            tvNombreUsuario = itemView.findViewById(R.id.tvNombreUsuarioRecibido); // NUEVO
+            imgMensaje = itemView.findViewById(R.id.imgMensajeRecibido);
         }
     }
 }

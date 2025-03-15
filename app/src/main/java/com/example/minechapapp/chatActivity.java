@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -17,17 +18,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.minechapapp.adapters.MensajeAdapter;
-import com.example.minechapapp.models.MensajeModel;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Query;
-import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,50 +31,44 @@ import java.util.Map;
 
 public class chatActivity extends AppCompatActivity {
 
-    private TextView tvNombreUsuario;
-    private TextView tvEstadoUsuario;
+    private static final String TIPO_CHAT_INDIVIDUAL_ID = "NCm3QCIsKw8MjjHycvm5";
+
+    private TextView tvNombreUsuario, tvEstadoUsuario;
     private RecyclerView recyclerMensajes;
     private EditText editMensaje;
-    private ImageButton btnEnviar;
+    private ImageButton btnEnviar, btnEmoji;
     private ImageView imgPreview;
-    private ImageButton btnEmoji;
 
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private MensajeAdapter mensajeAdapter;
     private List<MensajeModel> listaMensajes;
 
-    // Firebase
     private FirebaseFirestore db;
-    private String currentUserId;
-    private String receiverId;
-
-    private String chatId;
-    private String usuarioA;
-    private String usuarioB;
+    private String currentUserId, receiverId, usuarioA, usuarioB, chatId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        tvNombreUsuario = findViewById(R.id.tvNombreUsuario);
-        tvEstadoUsuario = findViewById(R.id.tvEstadoUsuario);
-        recyclerMensajes = findViewById(R.id.recyclerMensajes);
-        editMensaje = findViewById(R.id.editMensaje);
-        btnEnviar = findViewById(R.id.btnEnviar);
-        imgPreview = findViewById(R.id.imgPreview);
-        btnEmoji = findViewById(R.id.btnEmoji);
+        inicializarComponentes();
+        configurarRecyclerView();
 
+        db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-        String nombreUsuario = getIntent().getStringExtra("nombreUsuario");
+        // Extras enviados desde el adaptador
         receiverId = getIntent().getStringExtra("USER_ID");
+        String nombreUsuario = getIntent().getStringExtra("nombreUsuario");
 
-        if (nombreUsuario != null) {
-            tvNombreUsuario.setText(nombreUsuario);
-        } else {
-            tvNombreUsuario.setText("Chat");
+        if (TextUtils.isEmpty(receiverId)) {
+            showToast("Error: receiverId no proporcionado");
+            finish();
+            return;
         }
+
+        tvNombreUsuario.setText(!TextUtils.isEmpty(nombreUsuario) ? nombreUsuario : "Chat");
+
         if (currentUserId.compareTo(receiverId) < 0) {
             usuarioA = currentUserId;
             usuarioB = receiverId;
@@ -87,15 +76,7 @@ public class chatActivity extends AppCompatActivity {
             usuarioA = receiverId;
             usuarioB = currentUserId;
         }
-
         chatId = generarChatId(usuarioA, usuarioB);
-
-        listaMensajes = new ArrayList<>();
-        mensajeAdapter = new MensajeAdapter(listaMensajes);
-        recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
-        recyclerMensajes.setAdapter(mensajeAdapter);
-
-        db = FirebaseFirestore.getInstance();
 
         loadMessages();
         loadLastMessageStatus();
@@ -115,50 +96,70 @@ public class chatActivity extends AppCompatActivity {
 
         btnEmoji.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_PICK);
-            intent.setType("image/*"); // Solo imágenes
+            intent.setType("image/*");
             imagePickerLauncher.launch(intent);
         });
 
-        btnEnviar.setOnClickListener(v -> {
-            String mensajeTexto = editMensaje.getText().toString().trim();
-            if (!mensajeTexto.isEmpty()) {
-                listaMensajes.add(new MensajeModel(mensajeTexto, true));
-                mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
-                recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
+        btnEnviar.setOnClickListener(v -> enviarMensaje());
+    }
 
-                checkOrCreateChatAndSendMessage(mensajeTexto);
+    private void inicializarComponentes() {
+        tvNombreUsuario = findViewById(R.id.tvNombreUsuario);
+        tvEstadoUsuario = findViewById(R.id.tvEstadoUsuario);
+        recyclerMensajes = findViewById(R.id.recyclerMensajes);
+        editMensaje = findViewById(R.id.editMensaje);
+        btnEnviar = findViewById(R.id.btnEnviar);
+        imgPreview = findViewById(R.id.imgPreview);
+        btnEmoji = findViewById(R.id.btnEmoji);
+    }
 
-                editMensaje.setText("");
-            } else {
-                Toast.makeText(chatActivity.this, "Escribe un mensaje primero", Toast.LENGTH_SHORT).show();
-            }
-        });
+    private void configurarRecyclerView() {
+        listaMensajes = new ArrayList<>();
+        mensajeAdapter = new MensajeAdapter(listaMensajes, false);
+        recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
+        recyclerMensajes.setAdapter(mensajeAdapter);
+    }
+
+    private void enviarMensaje() {
+        String mensajeTexto = editMensaje.getText().toString().trim();
+
+        if (mensajeTexto.isEmpty()) {
+            showToast("Escribe un mensaje primero");
+            return;
+        }
+
+        listaMensajes.add(new MensajeModel(mensajeTexto, true, null));
+        mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
+        recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
+
+        checkOrCreateChatAndSendMessage(mensajeTexto);
+
+        editMensaje.setText("");
     }
 
     private void checkOrCreateChatAndSendMessage(String mensajeTexto) {
-        DocumentReference chatRef = db.collection("chats").document(chatId);
-        chatRef.get().addOnSuccessListener(documentSnapshot -> {
-            if (!documentSnapshot.exists()) {
-                Map<String, Object> chatData = new HashMap<>();
-                chatData.put("tipo_chat", "individual");
-                chatData.put("usuario_a", usuarioA);
-                chatData.put("usuario_b", usuarioB);
-                chatData.put("fecha_creado", FieldValue.serverTimestamp());
+        db.collection("chats").document(chatId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (!documentSnapshot.exists()) {
+                        crearChatIndividual(() -> guardarMensajeEnNotificacion(mensajeTexto));
+                    } else {
+                        guardarMensajeEnNotificacion(mensajeTexto);
+                    }
+                })
+                .addOnFailureListener(e -> showToast("Error al consultar el chat"));
+    }
 
-                chatRef.set(chatData)
-                        .addOnSuccessListener(aVoid -> {
+    private void crearChatIndividual(Runnable callback) {
+        Map<String, Object> chatData = new HashMap<>();
+        chatData.put("tipo_chat", TIPO_CHAT_INDIVIDUAL_ID);
+        chatData.put("usuario_a", usuarioA);
+        chatData.put("usuario_b", usuarioB);
+        chatData.put("fecha_creado", FieldValue.serverTimestamp());
 
-                            guardarMensajeEnNotificacion(mensajeTexto);
-                        })
-                        .addOnFailureListener(e -> {
-                            Toast.makeText(chatActivity.this, "Error al crear el chat", Toast.LENGTH_SHORT).show();
-                        });
-            } else {
-                guardarMensajeEnNotificacion(mensajeTexto);
-            }
-        }).addOnFailureListener(e -> {
-            Toast.makeText(chatActivity.this, "Error al consultar el chat", Toast.LENGTH_SHORT).show();
-        });
+        db.collection("chats").document(chatId).set(chatData)
+                .addOnSuccessListener(aVoid -> callback.run())
+                .addOnFailureListener(e -> showToast("Error al crear el chat individual"));
     }
 
     private void guardarMensajeEnNotificacion(String mensajeTexto) {
@@ -169,13 +170,7 @@ public class chatActivity extends AppCompatActivity {
         messageData.put("fecha_creado", FieldValue.serverTimestamp());
 
         db.collection("notificacion").add(messageData)
-                .addOnSuccessListener(documentReference -> {
-                    Toast.makeText(chatActivity.this, "Mensaje enviado", Toast.LENGTH_SHORT).show();
-                    loadLastMessageStatus();
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(chatActivity.this, "Error al enviar mensaje", Toast.LENGTH_SHORT).show();
-                });
+                .addOnFailureListener(e -> showToast("Error al enviar el mensaje"));
     }
 
     private void loadMessages() {
@@ -184,30 +179,28 @@ public class chatActivity extends AppCompatActivity {
                 .orderBy("fecha_creado", Query.Direction.ASCENDING)
                 .addSnapshotListener((snapshots, e) -> {
                     if (e != null) {
-                        if (e.getMessage() != null && e.getMessage().contains("FAILED_PRECONDITION")) {
-                            Toast.makeText(chatActivity.this,
-                                    "Se requiere un índice para 'chat_id' y 'fecha_creado'. " +
-                                            "Crea un índice compuesto en la consola de Firebase.",
-                                    Toast.LENGTH_LONG).show();
-                        } else {
-                            Toast.makeText(chatActivity.this, "Error al cargar mensajes: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                        }
+                        showToast("Error al cargar mensajes: " + e.getMessage());
                         return;
                     }
 
                     listaMensajes.clear();
+
                     if (snapshots != null && !snapshots.isEmpty()) {
                         for (DocumentSnapshot doc : snapshots.getDocuments()) {
                             String mensaje = doc.getString("mensaje");
                             String usuarioId = doc.getString("usuario_id");
-                            boolean esEnviado = (usuarioId != null && usuarioId.equals(currentUserId));
-                            listaMensajes.add(new MensajeModel(mensaje, esEnviado));
+
+                            if (usuarioId == null) continue;
+
+                            boolean esEnviado = usuarioId.equals(currentUserId);
+                            listaMensajes.add(new MensajeModel(mensaje, esEnviado, null));
                         }
+
                         mensajeAdapter.notifyDataSetChanged();
                         recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                     } else {
                         mensajeAdapter.notifyDataSetChanged();
-                        Toast.makeText(chatActivity.this, "No hay mensajes", Toast.LENGTH_SHORT).show();
+                        showToast("No hay mensajes");
                     }
                 });
     }
@@ -222,6 +215,7 @@ public class chatActivity extends AppCompatActivity {
                     if (!querySnapshot.isEmpty()) {
                         DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
                         String userMessageId = doc.getString("usuario_id");
+
                         if (userMessageId != null && userMessageId.equals(currentUserId)) {
                             tvEstadoUsuario.setText("Enviado por ti");
                         } else {
@@ -231,16 +225,14 @@ public class chatActivity extends AppCompatActivity {
                         tvEstadoUsuario.setText("Sin mensajes");
                     }
                 })
-                .addOnFailureListener(e -> {
-                    if (e.getMessage() != null && e.getMessage().contains("FAILED_PRECONDITION")) {
-                        tvEstadoUsuario.setText("Se requiere índice (chat_id, fecha_creado)");
-                    } else {
-                        tvEstadoUsuario.setText("Error al cargar estado");
-                    }
-                });
+                .addOnFailureListener(e -> tvEstadoUsuario.setText("Error al cargar estado"));
     }
 
     private String generarChatId(String id1, String id2) {
         return id1 + "_" + id2;
+    }
+
+    private void showToast(String message) {
+        Toast.makeText(chatActivity.this, message, Toast.LENGTH_SHORT).show();
     }
 }

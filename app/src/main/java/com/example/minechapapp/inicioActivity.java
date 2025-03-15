@@ -27,8 +27,8 @@ public class inicioActivity extends AppCompatActivity {
         btnSettings = findViewById(R.id.btn_settings);
         btnAdd = findViewById(R.id.btn_add);
 
-        btnSettings.setOnClickListener(view -> showPopupMenu(view));
-        btnAdd.setOnClickListener(view -> mostrarMenuAdd(view));
+        btnSettings.setOnClickListener(this::showPopupMenu);
+        btnAdd.setOnClickListener(this::mostrarMenuAdd);
 
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container, new ChatsFragmento())
@@ -53,6 +53,7 @@ public class inicioActivity extends AppCompatActivity {
             }
             return false;
         });
+
         popupMenu.show();
     }
 
@@ -62,12 +63,19 @@ public class inicioActivity extends AppCompatActivity {
 
         popupMenu.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
+
             if (itemId == R.id.menu_item_new_chat) {
                 startActivity(new Intent(inicioActivity.this, UsuariosActivos.class));
                 return true;
+
+            } else if (itemId == R.id.menu_item_chat_grupal) {
+                startActivity(new Intent(inicioActivity.this, GrupoChatActivity.class));
+                return true;
             }
+
             return false;
         });
+
         popupMenu.show();
     }
 }

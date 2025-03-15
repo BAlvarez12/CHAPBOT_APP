@@ -4,8 +4,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.List;
 
 public class UsuariosAdap extends RecyclerView.Adapter<UsuariosAdap.ViewHolder> {
@@ -36,24 +39,38 @@ public class UsuariosAdap extends RecyclerView.Adapter<UsuariosAdap.ViewHolder> 
     public int getItemCount() {
         return listaUsuarios.size();
     }
+
     public interface OnUsuarioClickListener {
         void onUsuarioClick(Usuario usuario);
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView tvNombre, tvEmail;
+
+        private final TextView tvNombre;
+        private final TextView tvEmail;
+        private final View itemLayout;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             tvNombre = itemView.findViewById(R.id.tvNombre);
             tvEmail = itemView.findViewById(R.id.tvEmail);
+            itemLayout = itemView;
         }
 
         public void bind(Usuario usuario, OnUsuarioClickListener listener) {
             tvNombre.setText(usuario.getNombre());
             tvEmail.setText(usuario.getEmail());
+            if (usuario.isSeleccionado()) {
+                itemLayout.setBackgroundColor(
+                        ContextCompat.getColor(itemLayout.getContext(), R.color.teal_200)
+                );
+            } else {
+                itemLayout.setBackgroundColor(
+                        ContextCompat.getColor(itemLayout.getContext(), android.R.color.transparent)
+                );
+            }
 
-            itemView.setOnClickListener(v -> {
+            itemLayout.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onUsuarioClick(usuario);
                 }

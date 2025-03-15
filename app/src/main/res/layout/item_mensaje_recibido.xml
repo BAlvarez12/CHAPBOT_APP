@@ -1,19 +1,37 @@
-<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:padding="8dp"
-    android:layout_gravity="start"> <!-- Alineado a la izquierda -->
-
-    <TextView
-        android:id="@+id/tvMensajeRecibido"
+    android:gravity="start">
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:background="@drawable/bg_mensaje_recibido"
         android:padding="12dp"
-        android:text="Mensaje recibido"
-        android:textSize="16sp"
-        android:textColor="@android:color/black"/>
+        android:gravity="start">
+        <TextView
+            android:id="@+id/tvNombreUsuarioRecibido"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nombre usuario"
+            android:textSize="12sp"
+            android:textColor="@android:color/black"
+            android:visibility="gone" />
+        <ImageView
+            android:id="@+id/imgMensajeRecibido"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:scaleType="centerCrop"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/tvMensajeRecibido"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Mensaje recibido"
+            android:textSize="16sp"
+            android:textColor="@android:color/black"/>
+    </LinearLayout>
 </LinearLayout>

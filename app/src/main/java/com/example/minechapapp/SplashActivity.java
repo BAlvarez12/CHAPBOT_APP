@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -14,24 +13,41 @@ import androidx.appcompat.app.AppCompatActivity;
 public class SplashActivity extends AppCompatActivity {
 
     private static final String TAG = "SplashActivity";
-    private static final int SPLASH_DURATION = 2000; // 2 segundos
+    private static final int SPLASH_DURATION = 1000;
+    private Handler handler;
+    private Runnable splashRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_splash);
 
-        // Log para confirmar que se inicia la SplashActivity
+        if (!isTaskRoot()) {
+            finish();
+            return;
+        }
+
+        setContentView(R.layout.activity_splash);
         Log.d(TAG, "onCreate: Iniciando SplashActivity...");
 
-        // (Opcional) Mensaje rápido para verificar visualmente
-        Toast.makeText(this, "Splash iniciada", Toast.LENGTH_SHORT).show();
+        handler = new Handler(Looper.getMainLooper());
+        splashRunnable = this::goToNextScreen;
 
-        // Usa un Handler con Looper.getMainLooper()
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            Intent intent = new Intent(SplashActivity.this, Login.class);
-            startActivity(intent);
-            finish();
-        }, SPLASH_DURATION);
+        handler.postDelayed(splashRunnable, SPLASH_DURATION);
+    }
+
+    private void goToNextScreen() {
+        Intent intent = new Intent(this, Login.class);
+        startActivity(intent);
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+        finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        if (handler != null && splashRunnable != null) {
+            handler.removeCallbacks(splashRunnable);
+        }
     }
 }

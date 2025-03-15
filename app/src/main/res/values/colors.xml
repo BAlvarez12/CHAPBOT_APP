@@ -14,5 +14,5 @@
     <color name="medium_gray">#9E9E9E</color>
     <color name="dark_gray">#616161</color>
     <color name="background_gray">#E0E0E0</color>
-
+    <color name="teal_200">#FF03DAC5</color>
 </resources>

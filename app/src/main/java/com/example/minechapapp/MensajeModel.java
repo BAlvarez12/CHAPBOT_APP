@@ -1,22 +1,26 @@
-package com.example.minechapapp.models;
+package com.example.minechapapp;
 
 public class MensajeModel {
     private String mensaje;
     private boolean enviado;
-    private String imageUrl; // URI de la imagen (null si es solo texto)
-
-    // Constructor para mensajes de texto
+    private String imageUrl;
+    private String nombreUsuario;
     public MensajeModel(String mensaje, boolean enviado) {
         this.mensaje = mensaje;
         this.enviado = enviado;
-        this.imageUrl = null; // No hay imagen
+        this.imageUrl = null;
+        this.nombreUsuario = null;
     }
-
-    // Constructor para mensajes con imagen
     public MensajeModel(String imageUrl, boolean enviado, boolean esImagen) {
         this.imageUrl = imageUrl;
         this.enviado = enviado;
-        this.mensaje = null; // No hay texto
+        this.mensaje = null;
+        this.nombreUsuario = null;
+    }
+    public MensajeModel(String mensaje, boolean enviado, String nombreUsuario) {
+        this.mensaje = mensaje;
+        this.enviado = enviado;
+        this.nombreUsuario = nombreUsuario;
     }
 
     public String getMensaje() {
@@ -33,5 +37,9 @@ public class MensajeModel {
 
     public boolean tieneImagen() {
         return imageUrl != null;
+    }
+
+    public String getNombreUsuario() {
+        return nombreUsuario;
     }
 }

@@ -4,23 +4,28 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="8dp"
-    android:gravity="end"> <!-- Asegura la alineación a la derecha -->
-
+    android:gravity="end">
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/bg_mensaje_enviado"
         android:padding="12dp"
-        android:gravity="end"> <!-- Alinea el contenido interno -->
-
+        android:gravity="end">
+        <TextView
+            android:id="@+id/tvNombreUsuarioEnviado"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tú"
+            android:textSize="12sp"
+            android:textColor="@android:color/white"
+            android:visibility="gone" />
         <ImageView
             android:id="@+id/imgMensajeEnviado"
             android:layout_width="200dp"
             android:layout_height="200dp"
             android:scaleType="centerCrop"
-            android:visibility="gone"/> <!-- Oculto por defecto -->
-
+            android:visibility="gone" />
         <TextView
             android:id="@+id/tvMensajeEnviado"
             android:layout_width="wrap_content"
