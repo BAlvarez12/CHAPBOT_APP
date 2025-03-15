@@ -3,8 +3,4 @@
         android:id="@+id/navigation_chats"
         android:icon="@drawable/ic_chats"
         android:title="Chats"/>
-    <item
-        android:id="@+id/navigation_invites"
-        android:icon="@drawable/ic_invites"
-        android:title="Invitación"/>
 </menu>

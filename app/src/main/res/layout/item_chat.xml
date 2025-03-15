@@ -30,7 +30,7 @@
                 android:id="@+id/tvNombre"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Nombre del Chat"
+                android:text="Nombre del usuario"
                 android:textStyle="bold"
                 android:textSize="16sp"/>
             <TextView
