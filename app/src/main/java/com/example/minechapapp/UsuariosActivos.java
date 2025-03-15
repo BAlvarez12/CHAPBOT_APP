@@ -1,5 +1,6 @@
 package com.example.minechapapp;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
@@ -25,18 +26,31 @@ public class UsuariosActivos extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_usuarios);
 
+        // Inicializar RecyclerView
         recyclerView = findViewById(R.id.recyclerViewUsuarios);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
+        // Lista y adapter
         listaUsuarios = new ArrayList<>();
         usuarioAdapter = new UsuariosAdap(listaUsuarios, usuario -> {
+            // Mostrar un Toast al seleccionar usuario
             Toast.makeText(UsuariosActivos.this,
                     "Elegiste chatear con: " + usuario.getNombre(),
                     Toast.LENGTH_SHORT).show();
+
+            // Abrir la pantalla de chat (ChatActivity)
+            Intent intent = new Intent(UsuariosActivos.this, chatActivity.class);
+            // Pasar los datos que necesites, por ejemplo el ID y nombre
+            intent.putExtra("USER_ID", usuario.getUid());
+            intent.putExtra("USER_NAME", usuario.getNombre());
+            startActivity(intent);
         });
         recyclerView.setAdapter(usuarioAdapter);
 
+        // Instancia de Firestore
         db = FirebaseFirestore.getInstance();
+
+        // Cargar usuarios de Firestore
         cargarUsuariosDesdeFirestore();
     }
 
@@ -53,6 +67,7 @@ public class UsuariosActivos extends AppCompatActivity {
                         Usuario usuario = new Usuario(uid, nombre, email);
                         listaUsuarios.add(usuario);
                     }
+                    // Notificar al adapter que hay nuevos datos
                     usuarioAdapter.notifyDataSetChanged();
                 })
                 .addOnFailureListener(e -> {
