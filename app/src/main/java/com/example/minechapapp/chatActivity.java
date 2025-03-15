@@ -18,12 +18,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.widget.ImageView;
 import android.view.View;
 
-
-import android.util.Log;
-
-
-
 import java.util.ArrayList;
+import java.util.List;
+import com.example.minechapapp.adapters.MensajeAdapter;
+import com.example.minechapapp.models.MensajeModel;
 
 public class chatActivity extends AppCompatActivity {
 
@@ -32,58 +30,75 @@ public class chatActivity extends AppCompatActivity {
     private EditText editMensaje;
     private ImageButton btnEnviar;
     private ImageView imgPreview;
+    private ImageButton btnEmoji;
 
-    private ArrayList<String> listaMensajes = new ArrayList<>();
-    private mensajeAdap mensajeAdapter;
-    private ImageButton btnEmoji; // Declara el botón
     private ActivityResultLauncher<Intent> imagePickerLauncher;
+    private MensajeAdapter mensajeAdapter;
+    private List<MensajeModel> listaMensajes;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
+        // Enlazar vistas con el XML
+        recyclerMensajes = findViewById(R.id.recyclerMensajes);
+        editMensaje = findViewById(R.id.editMensaje);
+        btnEnviar = findViewById(R.id.btnEnviar);
         imgPreview = findViewById(R.id.imgPreview);
         btnEmoji = findViewById(R.id.btnEmoji);
+        tvNombreUsuario = findViewById(R.id.tvNombreUsuario);
 
+        // Obtener el nombre del usuario desde la intención
+        String nombreUsuario = getIntent().getStringExtra("nombreUsuario");
+        if (nombreUsuario != null) {
+            tvNombreUsuario.setText(nombreUsuario);
+        }
+
+        // Inicializar la lista de mensajes y el adaptador
+        listaMensajes = new ArrayList<>();
+        mensajeAdapter = new MensajeAdapter(listaMensajes);
+
+        // Configurar RecyclerView
+        recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
+        recyclerMensajes.setAdapter(mensajeAdapter);
+
+        // Configurar el selector de imágenes
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
-                        imgPreview.setImageURI(imageUri);
-                        imgPreview.setVisibility(View.VISIBLE); // Para ver imagen
+                        if (imageUri != null) {
+                            imgPreview.setImageURI(imageUri);
+                            imgPreview.setVisibility(View.VISIBLE); // Mostrar imagen seleccionada
+                        }
                     }
                 }
         );
 
-
+        // Listener para el botón de selección de imágenes
         btnEmoji.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_PICK);
             intent.setType("image/*"); // Solo imágenes
             imagePickerLauncher.launch(intent);
         });
 
-        tvNombreUsuario = findViewById(R.id.tvNombreUsuario);
-        recyclerMensajes = findViewById(R.id.recyclerMensajes);
-        editMensaje = findViewById(R.id.editMensaje);
-        btnEnviar = findViewById(R.id.btnEnviar);
-
-        String nombreUsuario = getIntent().getStringExtra("nombreUsuario");
-        tvNombreUsuario.setText(nombreUsuario);
-
-        recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
-        mensajeAdapter = new mensajeAdap(listaMensajes);
-        recyclerMensajes.setAdapter(mensajeAdapter);
-
+        // Listener para el botón de enviar mensaje
         btnEnviar.setOnClickListener(v -> {
-            String mensaje = editMensaje.getText().toString().trim();
+            String mensajeTexto = editMensaje.getText().toString().trim();
 
-            if (!mensaje.isEmpty()) {
-                listaMensajes.add(mensaje);
+            if (!mensajeTexto.isEmpty()) {
+                // Agregar el mensaje a la lista
+                listaMensajes.add(new MensajeModel(mensajeTexto, true)); // true = enviado
+
+                // Notificar al adaptador del cambio
                 mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
-                recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
 
+                // Asegurar que el RecyclerView se desplace al último mensaje
+                recyclerMensajes.post(() -> recyclerMensajes.scrollToPosition(listaMensajes.size() - 1));
+
+                // Limpiar el campo de entrada
                 editMensaje.setText("");
             } else {
                 Toast.makeText(this, "Escribe un mensaje primero", Toast.LENGTH_SHORT).show();

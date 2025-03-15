@@ -1,0 +1,25 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:layout_gravity="end"> <!-- Mensajes alineados a la derecha -->
+
+    <ImageView
+        android:id="@+id/imgMensajeEnviado"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:scaleType="centerCrop"
+        android:visibility="gone"/> <!-- Oculto por defecto -->
+
+    <TextView
+        android:id="@+id/tvMensajeEnviado"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_mensaje_enviado"
+        android:padding="12dp"
+        android:text="Mensaje enviado"
+        android:textSize="16sp"
+        android:textColor="@android:color/white"/>
+</LinearLayout>

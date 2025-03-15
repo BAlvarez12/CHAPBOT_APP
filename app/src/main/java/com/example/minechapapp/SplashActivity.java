@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -26,15 +27,11 @@ public class SplashActivity extends AppCompatActivity {
         // (Opcional) Mensaje rápido para verificar visualmente
         Toast.makeText(this, "Splash iniciada", Toast.LENGTH_SHORT).show();
 
-        // Temporizador de 2 segundos para pasar a Login
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                // Cambia 'Login.class' por la actividad que quieras iniciar
-                Intent intent = new Intent(SplashActivity.this, Login.class);
-                startActivity(intent);
-                finish();
-            }
+        // Usa un Handler con Looper.getMainLooper()
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            Intent intent = new Intent(SplashActivity.this, Login.class);
+            startActivity(intent);
+            finish();
         }, SPLASH_DURATION);
     }
 }
