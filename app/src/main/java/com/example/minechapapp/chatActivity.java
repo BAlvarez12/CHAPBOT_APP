@@ -6,9 +6,22 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import android.widget.ImageView;
+import android.view.View;
+
+
+import android.util.Log;
+
+
 
 import java.util.ArrayList;
 
@@ -18,14 +31,38 @@ public class chatActivity extends AppCompatActivity {
     private RecyclerView recyclerMensajes;
     private EditText editMensaje;
     private ImageButton btnEnviar;
+    private ImageView imgPreview;
 
     private ArrayList<String> listaMensajes = new ArrayList<>();
     private mensajeAdap mensajeAdapter;
+    private ImageButton btnEmoji; // Declara el botón
+    private ActivityResultLauncher<Intent> imagePickerLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+
+        imgPreview = findViewById(R.id.imgPreview);
+        btnEmoji = findViewById(R.id.btnEmoji);
+
+        imagePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        Uri imageUri = result.getData().getData();
+                        imgPreview.setImageURI(imageUri);
+                        imgPreview.setVisibility(View.VISIBLE); // Para ver imagen
+                    }
+                }
+        );
+
+
+        btnEmoji.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_PICK);
+            intent.setType("image/*"); // Solo imágenes
+            imagePickerLauncher.launch(intent);
+        });
 
         tvNombreUsuario = findViewById(R.id.tvNombreUsuario);
         recyclerMensajes = findViewById(R.id.recyclerMensajes);
@@ -52,5 +89,5 @@ public class chatActivity extends AppCompatActivity {
                 Toast.makeText(this, "Escribe un mensaje primero", Toast.LENGTH_SHORT).show();
             }
         });
-        }
+    }
 }
