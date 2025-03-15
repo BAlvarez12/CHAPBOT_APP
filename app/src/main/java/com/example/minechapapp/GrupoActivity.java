@@ -84,7 +84,6 @@ public class GrupoActivity extends AppCompatActivity {
     }
 
     private void inicializarComponentes() {
-        // Asegúrate de usar los IDs correctos de tu layout
         tvNombreGrupo = findViewById(R.id.tvNombreUsuario);
         recyclerMensajes = findViewById(R.id.recyclerMensajes);
         editMensaje = findViewById(R.id.editMensaje);
@@ -95,11 +94,10 @@ public class GrupoActivity extends AppCompatActivity {
 
     private void configurarRecyclerMensajes() {
         listaMensajes = new ArrayList<>();
-        mensajeAdapter = new MensajeAdapter(listaMensajes, true); // Modo grupal: true
+        mensajeAdapter = new MensajeAdapter(listaMensajes, true);
         recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
         recyclerMensajes.setAdapter(mensajeAdapter);
     }
-
     private void configurarPickImagen() {
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),

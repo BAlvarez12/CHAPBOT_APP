@@ -66,7 +66,7 @@ public class NombreGrupoActivity extends AppCompatActivity {
 
     private void crearChatGrupal(String groupName, List<String> participantes) {
         Map<String, Object> chatData = new HashMap<>();
-        chatData.put("tipo_chat", "grupal");
+        chatData.put("tipo_chat", "97XeeFNzro7xurmKwKeh");
         chatData.put("nombre_grupo", groupName);
         chatData.put("participantes", participantes);
         chatData.put("fecha_creado", FieldValue.serverTimestamp());
