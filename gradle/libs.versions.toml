@@ -30,4 +30,3 @@ firebaseStorage = { group = "com.google.firebase", name = "firebase-storage", ve
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 googleService = {id = "com.google.gms.google-services", version.ref = "googleServiceVersion"}
-
