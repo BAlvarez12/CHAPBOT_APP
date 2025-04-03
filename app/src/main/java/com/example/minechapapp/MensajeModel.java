@@ -1,26 +1,34 @@
 package com.example.minechapapp;
 
+import java.util.Date;
+
 public class MensajeModel {
     private String mensaje;
     private boolean enviado;
     private String imageUrl;
     private String nombreUsuario;
-    public MensajeModel(String mensaje, boolean enviado) {
+    private Date fecha;
+
+    // Constructor para mensajes de texto
+    public MensajeModel(String mensaje, boolean enviado, Date fecha) {
         this.mensaje = mensaje;
         this.enviado = enviado;
-        this.imageUrl = null;
-        this.nombreUsuario = null;
+        this.fecha = fecha;
     }
-    public MensajeModel(String imageUrl, boolean enviado, boolean esImagen) {
+
+    // Constructor para imágenes
+    public MensajeModel(String imageUrl, boolean enviado, boolean esImagen, Date fecha) {
         this.imageUrl = imageUrl;
         this.enviado = enviado;
-        this.mensaje = null;
-        this.nombreUsuario = null;
+        this.fecha = fecha;
     }
-    public MensajeModel(String mensaje, boolean enviado, String nombreUsuario) {
+
+    // Constructor con nombre de usuario (para mensajes grupales, si lo usas)
+    public MensajeModel(String mensaje, boolean enviado, String nombreUsuario, Date fecha) {
         this.mensaje = mensaje;
         this.enviado = enviado;
         this.nombreUsuario = nombreUsuario;
+        this.fecha = fecha;
     }
 
     public String getMensaje() {
@@ -36,10 +44,14 @@ public class MensajeModel {
     }
 
     public boolean tieneImagen() {
-        return imageUrl != null;
+        return imageUrl != null && !imageUrl.isEmpty();
     }
 
     public String getNombreUsuario() {
         return nombreUsuario;
+    }
+
+    public Date getFecha() {
+        return fecha;
     }
 }

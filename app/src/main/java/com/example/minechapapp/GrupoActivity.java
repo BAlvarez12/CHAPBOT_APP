@@ -24,12 +24,11 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class GrupoActivity extends AppCompatActivity {
@@ -98,6 +97,7 @@ public class GrupoActivity extends AppCompatActivity {
         recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
         recyclerMensajes.setAdapter(mensajeAdapter);
     }
+
     private void configurarPickImagen() {
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -137,6 +137,7 @@ public class GrupoActivity extends AppCompatActivity {
                     showToast("Error al obtener el nombre de usuario");
                 });
     }
+
     private void verificarChatGrupal() {
         db.collection("chats").document(chatId)
                 .get()
@@ -174,12 +175,13 @@ public class GrupoActivity extends AppCompatActivity {
         }
 
         if (!mensajeTexto.isEmpty()) {
-            listaMensajes.add(new MensajeModel(mensajeTexto, true, nombreActualUsuario));
+            listaMensajes.add(new MensajeModel(mensajeTexto, true, nombreActualUsuario, new Date()));
             mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
             recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
             guardarMensajeEnFirestore(mensajeTexto);
             editMensaje.setText("");
         }
+
         if (imageUriSeleccionada != null) {
             subirImagenAFirestore(imageUriSeleccionada);
             imgPreview.setVisibility(ImageView.GONE);
@@ -202,6 +204,7 @@ public class GrupoActivity extends AppCompatActivity {
                     showToast("Error al enviar el mensaje");
                 });
     }
+
     private void subirImagenAFirestore(Uri imagenUri) {
         showToast("Función para enviar imágenes aún no implementada");
     }
@@ -235,7 +238,12 @@ public class GrupoActivity extends AppCompatActivity {
                         if (nombreUsuario == null) nombreUsuario = "Usuario desconocido";
 
                         boolean esEnviado = usuarioId.equals(currentUserId);
-                        listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario));
+
+                        Date fecha = doc.getTimestamp("fecha_creado") != null
+                                ? doc.getTimestamp("fecha_creado").toDate()
+                                : new Date();
+
+                        listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha));
                     }
 
                     mensajeAdapter.notifyDataSetChanged();

@@ -1,15 +1,18 @@
 package com.example.minechapapp;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import com.bumptech.glide.Glide;
 
+import com.bumptech.glide.Glide;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
@@ -17,6 +20,7 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private static final int TIPO_RECIBIDO = 2;
     private List<MensajeModel> listaMensajes;
     private boolean esGrupal;
+
     public MensajeAdapter(List<MensajeModel> listaMensajes, boolean esGrupal) {
         this.listaMensajes = listaMensajes;
         this.esGrupal = esGrupal;
@@ -50,6 +54,10 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         MensajeModel mensaje = listaMensajes.get(position);
 
+        SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", new Locale("es", "GT"));
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("America/Guatemala"));
+        String hora = mensaje.getFecha() != null ? sdf.format(mensaje.getFecha()) : "";
+
         if (holder.getItemViewType() == TIPO_ENVIADO) {
             SentViewHolder sentHolder = (SentViewHolder) holder;
 
@@ -72,6 +80,8 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 sentHolder.tvMensaje.setText(mensaje.getMensaje());
             }
 
+            sentHolder.tvHora.setText(hora);
+
         } else {
             ReceivedViewHolder receivedHolder = (ReceivedViewHolder) holder;
 
@@ -93,30 +103,34 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 receivedHolder.tvMensaje.setVisibility(View.VISIBLE);
                 receivedHolder.tvMensaje.setText(mensaje.getMensaje());
             }
+
+            receivedHolder.tvHora.setText(hora);
         }
     }
 
     public static class SentViewHolder extends RecyclerView.ViewHolder {
-        TextView tvMensaje, tvNombreUsuario;
+        TextView tvMensaje, tvNombreUsuario, tvHora;
         ImageView imgMensaje;
 
         public SentViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMensaje = itemView.findViewById(R.id.tvMensajeEnviado);
             imgMensaje = itemView.findViewById(R.id.imgMensajeEnviado);
-            tvNombreUsuario = itemView.findViewById(R.id.tvNombreUsuarioEnviado); // NUEVO
+            tvNombreUsuario = itemView.findViewById(R.id.tvNombreUsuarioEnviado);
+            tvHora = itemView.findViewById(R.id.tvHoraMensajeEnviado); // <-- Nuevo
         }
     }
 
     public static class ReceivedViewHolder extends RecyclerView.ViewHolder {
-        TextView tvMensaje, tvNombreUsuario;
+        TextView tvMensaje, tvNombreUsuario, tvHora;
         ImageView imgMensaje;
 
         public ReceivedViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMensaje = itemView.findViewById(R.id.tvMensajeRecibido);
-            tvNombreUsuario = itemView.findViewById(R.id.tvNombreUsuarioRecibido); // NUEVO
+            tvNombreUsuario = itemView.findViewById(R.id.tvNombreUsuarioRecibido);
             imgMensaje = itemView.findViewById(R.id.imgMensajeRecibido);
+            tvHora = itemView.findViewById(R.id.tvHoraMensajeRecibido); // <-- Nuevo
         }
     }
 }

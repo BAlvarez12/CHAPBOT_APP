@@ -88,6 +88,7 @@ public class Login extends AppCompatActivity {
                 });
     }
 
+
     private void consultarFirestore(String uid) {
         showLoading(true);
 
@@ -116,11 +117,12 @@ public class Login extends AppCompatActivity {
 
     private void goToInicioActivity() {
         Intent intent = new Intent(Login.this, inicioActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(intent);
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
         finish();
     }
+
 
     private void showLoading(boolean show) {
         if (loadingOverlay != null) {

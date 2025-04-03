@@ -5,6 +5,7 @@
     android:orientation="horizontal"
     android:padding="8dp"
     android:gravity="end">
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -12,6 +13,7 @@
         android:background="@drawable/bg_mensaje_enviado"
         android:padding="12dp"
         android:gravity="end">
+
         <TextView
             android:id="@+id/tvNombreUsuarioEnviado"
             android:layout_width="wrap_content"
@@ -20,18 +22,31 @@
             android:textSize="12sp"
             android:textColor="@android:color/white"
             android:visibility="gone" />
+
         <ImageView
             android:id="@+id/imgMensajeEnviado"
             android:layout_width="200dp"
             android:layout_height="200dp"
             android:scaleType="centerCrop"
             android:visibility="gone" />
+
         <TextView
             android:id="@+id/tvMensajeEnviado"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Mensaje enviado"
             android:textSize="16sp"
-            android:textColor="@android:color/white"/>
+            android:textColor="@android:color/black" />
+
+
+        <TextView
+            android:id="@+id/tvHoraMensajeEnviado"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="12:45 PM"
+            android:textSize="10sp"
+            android:textColor="@android:color/white"
+            android:layout_marginTop="4dp"
+            android:gravity="end" />
     </LinearLayout>
 </LinearLayout>

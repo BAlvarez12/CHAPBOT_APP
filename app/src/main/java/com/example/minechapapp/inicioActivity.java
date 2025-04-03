@@ -41,16 +41,22 @@ public class inicioActivity extends AppCompatActivity {
 
         popupMenu.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
+
             if (itemId == R.id.menu_item_perfil) {
                 Toast.makeText(inicioActivity.this, "Perfil seleccionado", Toast.LENGTH_SHORT).show();
                 return true;
+
             } else if (itemId == R.id.menu_item_logout) {
                 mAuth.signOut();
                 Toast.makeText(inicioActivity.this, "Sesión cerrada", Toast.LENGTH_SHORT).show();
-                startActivity(new Intent(inicioActivity.this, Login.class));
+
+                Intent intent = new Intent(inicioActivity.this, Login.class);
+                startActivity(intent);
+                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out); // ✅ Animación al cerrar sesión
                 finish();
                 return true;
             }
+
             return false;
         });
 
@@ -65,11 +71,15 @@ public class inicioActivity extends AppCompatActivity {
             int itemId = item.getItemId();
 
             if (itemId == R.id.menu_item_new_chat) {
-                startActivity(new Intent(inicioActivity.this, UsuariosActivos.class));
+                Intent intent = new Intent(inicioActivity.this, UsuariosActivos.class);
+                startActivity(intent);
+                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right); // ✅ Animación al abrir actividad
                 return true;
 
             } else if (itemId == R.id.menu_item_chat_grupal) {
-                startActivity(new Intent(inicioActivity.this, GrupoChatActivity.class));
+                Intent intent = new Intent(inicioActivity.this, GrupoChatActivity.class);
+                startActivity(intent);
+                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right); // ✅ Animación al abrir actividad
                 return true;
             }
 
@@ -77,5 +87,11 @@ public class inicioActivity extends AppCompatActivity {
         });
 
         popupMenu.show();
+    }
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right); // ✅ Animación al regresar
     }
 }
