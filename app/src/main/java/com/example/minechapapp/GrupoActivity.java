@@ -32,56 +32,43 @@ import java.util.Locale;
 import java.util.Map;
 
 public class GrupoActivity extends AppCompatActivity {
-
     private static final String TAG = "GrupoActivity";
     private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
-
     private TextView tvNombreGrupo;
     private RecyclerView recyclerMensajes;
     private EditText editMensaje;
     private ImageButton btnEnviar, btnEmoji;
     private ImageView imgPreview;
-
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private MensajeAdapter mensajeAdapter;
     private List<MensajeModel> listaMensajes;
-
     private FirebaseFirestore db;
     private String currentUserId, chatId, nombreGrupo, nombreActualUsuario;
     private Uri imageUriSeleccionada;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
-
         inicializarComponentes();
         configurarRecyclerMensajes();
         configurarPickImagen();
-
         db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-
         chatId = getIntent().getStringExtra("chatId");
         nombreGrupo = getIntent().getStringExtra("nombreGrupo");
-
         if (TextUtils.isEmpty(chatId)) {
             showToast("Error: ID del chat no proporcionado");
             finish();
             return;
         }
-
         Log.d(TAG, "Chat grupal iniciado, chatId: " + chatId);
         tvNombreGrupo.setText(!TextUtils.isEmpty(nombreGrupo) ? nombreGrupo : "Chat grupal");
-
         obtenerNombreUsuarioActual();
         verificarChatGrupal();
         loadMessages();
-
         btnEmoji.setOnClickListener(v -> seleccionarImagen());
         btnEnviar.setOnClickListener(v -> enviarMensaje());
     }
-
     private void inicializarComponentes() {
         tvNombreGrupo = findViewById(R.id.tvNombreUsuario);
         recyclerMensajes = findViewById(R.id.recyclerMensajes);
@@ -90,14 +77,12 @@ public class GrupoActivity extends AppCompatActivity {
         btnEmoji = findViewById(R.id.btnEmoji);
         imgPreview = findViewById(R.id.imgPreview);
     }
-
     private void configurarRecyclerMensajes() {
         listaMensajes = new ArrayList<>();
-        mensajeAdapter = new MensajeAdapter(listaMensajes, true);
+        mensajeAdapter = new MensajeAdapter(this, listaMensajes, true);
         recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
         recyclerMensajes.setAdapter(mensajeAdapter);
     }
-
     private void configurarPickImagen() {
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -112,13 +97,11 @@ public class GrupoActivity extends AppCompatActivity {
                 }
         );
     }
-
     private void seleccionarImagen() {
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/*");
         imagePickerLauncher.launch(intent);
     }
-
     private void obtenerNombreUsuarioActual() {
         db.collection("usuarios").document(currentUserId)
                 .get()
@@ -137,7 +120,6 @@ public class GrupoActivity extends AppCompatActivity {
                     showToast("Error al obtener el nombre de usuario");
                 });
     }
-
     private void verificarChatGrupal() {
         db.collection("chats").document(chatId)
                 .get()
@@ -161,7 +143,6 @@ public class GrupoActivity extends AppCompatActivity {
                     finish();
                 });
     }
-
     private void enviarMensaje() {
         String mensajeTexto = editMensaje.getText().toString().trim();
 
@@ -173,7 +154,6 @@ public class GrupoActivity extends AppCompatActivity {
             showToast("No se encontró tu nombre de usuario");
             return;
         }
-
         if (!mensajeTexto.isEmpty()) {
             listaMensajes.add(new MensajeModel(mensajeTexto, true, nombreActualUsuario, new Date()));
             mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
@@ -181,14 +161,12 @@ public class GrupoActivity extends AppCompatActivity {
             guardarMensajeEnFirestore(mensajeTexto);
             editMensaje.setText("");
         }
-
         if (imageUriSeleccionada != null) {
             subirImagenAFirestore(imageUriSeleccionada);
             imgPreview.setVisibility(ImageView.GONE);
             imageUriSeleccionada = null;
         }
     }
-
     private void guardarMensajeEnFirestore(String mensajeTexto) {
         Map<String, Object> messageData = new HashMap<>();
         messageData.put("chat_id", chatId);
@@ -204,11 +182,9 @@ public class GrupoActivity extends AppCompatActivity {
                     showToast("Error al enviar el mensaje");
                 });
     }
-
     private void subirImagenAFirestore(Uri imagenUri) {
         showToast("Función para enviar imágenes aún no implementada");
     }
-
     private void loadMessages() {
         Log.d(TAG, "Cargando mensajes del chatId: " + chatId);
 
@@ -221,13 +197,11 @@ public class GrupoActivity extends AppCompatActivity {
                         showToast("Error al cargar mensajes: " + e.getMessage());
                         return;
                     }
-
                     if (snapshots == null || snapshots.isEmpty()) {
                         Log.d(TAG, "No hay mensajes en el chat");
                         mensajeAdapter.notifyDataSetChanged();
                         return;
                     }
-
                     listaMensajes.clear();
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
                         String mensaje = doc.getString("mensaje");
@@ -245,12 +219,10 @@ public class GrupoActivity extends AppCompatActivity {
 
                         listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha));
                     }
-
                     mensajeAdapter.notifyDataSetChanged();
                     recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                 });
     }
-
     private void showToast(String mensaje) {
         Toast.makeText(GrupoActivity.this, mensaje, Toast.LENGTH_SHORT).show();
     }
