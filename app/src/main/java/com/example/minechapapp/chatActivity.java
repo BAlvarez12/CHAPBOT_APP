@@ -59,6 +59,11 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.http.*;
 public class chatActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_INDIVIDUAL_ID = "NCm3QCIsKw8MjjHycvm5";
     private TextView tvGrabando;
@@ -75,6 +80,7 @@ public class chatActivity extends AppCompatActivity {
     private MensajeAdapter mensajeAdapter;
     private List<MensajeModel> listaMensajes;
     private FirebaseFirestore db;
+    private ImageButton btnBack;
     private String currentUserId, receiverId, usuarioA, usuarioB, chatId;
 
     @Override
@@ -132,6 +138,8 @@ public class chatActivity extends AppCompatActivity {
             v.startAnimation(clickAnimation);
             enviarMensaje();
         });
+        btnBack.setOnClickListener(v -> onBackPressed());
+
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
                 checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
                 checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -317,15 +325,15 @@ public class chatActivity extends AppCompatActivity {
         imgPerfilUsuario = findViewById(R.id.imgPerfilUsuario);
         btnEmoji = findViewById(R.id.btnEmoji);
         contenedorBotonEnviar = findViewById(R.id.contenedorBotonEnviar);
-    }
+        btnBack = findViewById(R.id.btnBack);
 
+    }
     private void configurarRecyclerView() {
         listaMensajes = new ArrayList<>();
         mensajeAdapter = new MensajeAdapter(this, listaMensajes, false);
         recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
         recyclerMensajes.setAdapter(mensajeAdapter);
     }
-
     private void enviarMensaje() {
         String mensajeTexto = editMensaje.getText().toString().trim();
         if (mensajeTexto.isEmpty()) {
@@ -338,7 +346,6 @@ public class chatActivity extends AppCompatActivity {
         checkOrCreateChatAndSendMessage(mensajeTexto);
         editMensaje.setText("");
     }
-
     private void checkOrCreateChatAndSendMessage(String mensajeTexto) {
         db.collection("chats").document(chatId)
                 .get()
@@ -351,7 +358,6 @@ public class chatActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> showToast("Error al consultar el chat"));
     }
-
     private void crearChatIndividual(Runnable callback) {
         Map<String, Object> chatData = new HashMap<>();
         chatData.put("tipo_chat", TIPO_CHAT_INDIVIDUAL_ID);
@@ -362,7 +368,6 @@ public class chatActivity extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> callback.run())
                 .addOnFailureListener(e -> showToast("Error al crear el chat individual"));
     }
-
     private void guardarMensajeEnNotificacion(String mensajeTexto) {
         Map<String, Object> messageData = new HashMap<>();
         messageData.put("chat_id", chatId);
@@ -372,7 +377,6 @@ public class chatActivity extends AppCompatActivity {
         db.collection("notificacion").add(messageData)
                 .addOnFailureListener(e -> showToast("Error al enviar el mensaje"));
     }
-
     private void guardarMensajeAudio(String audioUrl, String duracion) {
         Map<String, Object> mensajeData = new HashMap<>();
         mensajeData.put("chat_id", chatId);
@@ -384,7 +388,6 @@ public class chatActivity extends AppCompatActivity {
                 .addOnSuccessListener(documentReference -> showToast("Mensaje de audio guardado"))
                 .addOnFailureListener(e -> showToast("Error al guardar audio"));
     }
-
     private void loadMessages() {
         db.collection("notificacion")
                 .whereEqualTo("chat_id", chatId)
@@ -421,7 +424,6 @@ public class chatActivity extends AppCompatActivity {
                     }
                 });
     }
-
     private long getDuracionAudio(String filePath) {
         try {
             MediaPlayer player = new MediaPlayer();
@@ -434,14 +436,12 @@ public class chatActivity extends AppCompatActivity {
             return 0;
         }
     }
-
     private String convertirDuracion(long milisegundos) {
         int segundos = (int) (milisegundos / 1000);
         int minutos = segundos / 60;
         segundos %= 60;
         return String.format(Locale.getDefault(), "%d:%02d", minutos, segundos);
     }
-
     private void subirAudioASupabase(File audioFile) {
         String supabaseUrl = "https://vlfuswavnjmkucepynxb.supabase.co";
         String supabaseBearerToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
@@ -474,7 +474,6 @@ public class chatActivity extends AppCompatActivity {
             }
         });
     }
-
     private void loadLastMessageStatus() {
         db.collection("notificacion")
                 .whereEqualTo("chat_id", chatId)
@@ -496,15 +495,12 @@ public class chatActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> tvEstadoUsuario.setText("Error al cargar estado"));
     }
-
     private String generarChatId(String id1, String id2) {
         return id1 + "_" + id2;
     }
-
     private void showToast(String message) {
         Toast.makeText(chatActivity.this, message, Toast.LENGTH_SHORT).show();
     }
-
     private File descargarAudioDesdeUrl(String url, String nombreArchivo) throws IOException {
         URL audioUrl = new URL(url);
         HttpURLConnection connection = (HttpURLConnection) audioUrl.openConnection();

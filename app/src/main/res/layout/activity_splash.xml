@@ -11,10 +11,10 @@
     <ImageView
         android:id="@+id/logo_image"
         android:layout_width="265dp"
-        android:layout_height="265dp"
+        android:layout_height="260dp"
         android:importantForAccessibility="no"
         android:src="@drawable/logo_minechap1"
-        app:tint="@color/white"
+        app:tint="@color/second"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

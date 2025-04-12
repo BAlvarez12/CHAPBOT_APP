@@ -45,6 +45,8 @@ public class GrupoActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private String currentUserId, chatId, nombreGrupo, nombreActualUsuario;
     private Uri imageUriSeleccionada;
+    private ImageButton btnBack;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -68,6 +70,8 @@ public class GrupoActivity extends AppCompatActivity {
         loadMessages();
         btnEmoji.setOnClickListener(v -> seleccionarImagen());
         btnEnviar.setOnClickListener(v -> enviarMensaje());
+        btnBack.setOnClickListener(v -> onBackPressed());
+
     }
     private void inicializarComponentes() {
         tvNombreGrupo = findViewById(R.id.tvNombreUsuario);
@@ -76,6 +80,8 @@ public class GrupoActivity extends AppCompatActivity {
         btnEnviar = findViewById(R.id.btnEnviar);
         btnEmoji = findViewById(R.id.btnEmoji);
         imgPreview = findViewById(R.id.imgPreview);
+        btnBack = findViewById(R.id.btnBack);
+
     }
     private void configurarRecyclerMensajes() {
         listaMensajes = new ArrayList<>();

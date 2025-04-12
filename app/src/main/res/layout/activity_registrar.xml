@@ -20,8 +20,8 @@
         android:contentDescription="@string/back"
         android:focusable="true"
         android:src="@drawable/ic_back"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <TextView
         android:id="@+id/tvTitulo"
@@ -29,8 +29,8 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="52dp"
         android:text="Registro"
+        android:textSize="32sp"
         android:textColor="@color/white"
-        android:textSize="24sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

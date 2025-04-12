@@ -30,7 +30,6 @@
         android:exported="true" />
     <activity
         android:name=".chatActivity"
-        android:fitsSystemWindows="true"
         android:exported="true" />
     <activity
         android:name=".UsuariosActivos"
@@ -47,8 +46,5 @@
         <activity
         android:name=".GrupoActivity"
         android:exported="true" />
-        <activity
-            android:name=".EditPerfil"
-            android:exported="true" />
 </application>
     </manifest>
