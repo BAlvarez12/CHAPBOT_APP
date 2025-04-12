@@ -1,8 +1,9 @@
 package com.example.minechapapp;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -13,32 +14,25 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-
 public class Login extends AppCompatActivity {
-
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
-
     private EditText etEmail, etPassword;
     private Button btnLogin, btnRegister;
     private FrameLayout loadingOverlay;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
-
         if (mAuth.getCurrentUser() != null) {
             goToInicioActivity();
             return;
         }
-
         setContentView(R.layout.activity_login);
         initUI();
         setListeners();
     }
-
     private void initUI() {
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
@@ -46,26 +40,30 @@ public class Login extends AppCompatActivity {
         btnRegister = findViewById(R.id.btnRegister);
         loadingOverlay = findViewById(R.id.loadingOverlay);
     }
-
     private void setListeners() {
-        btnLogin.setOnClickListener(v -> iniciarSesion());
-
-        btnRegister.setOnClickListener(v -> {
-            Intent intent = new Intent(Login.this, RegisterActivity.class);
-            startActivity(intent);
-            overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
+        btnLogin.setOnClickListener(v -> {
+            Animation anim = AnimationUtils.loadAnimation(this, R.anim.dimencion_escala);
+            v.startAnimation(anim);
+            v.postDelayed(this::iniciarSesion, 150);
         });
-    }
+        btnRegister.setOnClickListener(v -> {
+            Animation anim = AnimationUtils.loadAnimation(this, R.anim.dimencion_escala);
+            v.startAnimation(anim);
+            v.postDelayed(() -> {
+                Intent intent = new Intent(Login.this, RegisterActivity.class);
+                startActivity(intent);
+                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
+            }, 150);
+        });
 
+    }
     private void iniciarSesion() {
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
-
         if (email.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, "Por favor, completa todos los campos", Toast.LENGTH_SHORT).show();
             return;
         }
-
         btnLogin.setEnabled(false);
         showLoading(true);
 
@@ -87,8 +85,6 @@ public class Login extends AppCompatActivity {
                     }
                 });
     }
-
-
     private void consultarFirestore(String uid) {
         showLoading(true);
 
@@ -102,7 +98,6 @@ public class Login extends AppCompatActivity {
                         if (document.exists()) {
                             String nombre = document.getString("nombre");
                             Toast.makeText(this, "Bienvenido, " + nombre, Toast.LENGTH_SHORT).show();
-
                             goToInicioActivity();
                         } else {
                             mAuth.signOut();
@@ -114,7 +109,6 @@ public class Login extends AppCompatActivity {
                     }
                 });
     }
-
     private void goToInicioActivity() {
         Intent intent = new Intent(Login.this, inicioActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -122,8 +116,6 @@ public class Login extends AppCompatActivity {
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
         finish();
     }
-
-
     private void showLoading(boolean show) {
         if (loadingOverlay != null) {
             loadingOverlay.setVisibility(show ? View.VISIBLE : View.GONE);
