@@ -10,7 +10,12 @@
     <string name="Registrarme">Registrarme</string>
     <string name="hint_nombre">Ingresa tu nombre</string>
     <string name="btn_registrar">Registrar</string>
-    <string name="app_name">MinechapApp</string>
-    <string name="back"></string>
+    <string name="app_name">MINECHAP</string>
+    <string name="config_title">Configuración</string>
+    <string name="logout_button">Cerrar Sesión</string>
+    <string name="back_button">Volver</string>
+    <string name="back">Volver</string>
+    <string name="message_hint">Escribe un mensaje...</string>
+    <string name="registro">Registro</string>
     <string name="add_menu_desc">Botón para abrir opciones de añadir algo nuevo</string>
 </resources>

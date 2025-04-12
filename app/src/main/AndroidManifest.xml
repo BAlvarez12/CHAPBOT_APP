@@ -47,5 +47,8 @@
         <activity
         android:name=".GrupoActivity"
         android:exported="true" />
+        <activity
+            android:name=".EditPerfil"
+            android:exported="true" />
 </application>
     </manifest>

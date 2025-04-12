@@ -44,6 +44,14 @@ public class inicioActivity extends AppCompatActivity {
 
             if (itemId == R.id.menu_item_perfil) {
                 Toast.makeText(inicioActivity.this, "Perfil seleccionado", Toast.LENGTH_SHORT).show();
+                try {
+                    Intent intent = new Intent(inicioActivity.this, EditPerfil.class);
+                    startActivity(intent);
+                    overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
+                } catch (Exception e) {
+                    Toast.makeText(inicioActivity.this, "Error al abrir perfil: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    e.printStackTrace();
+                }
                 return true;
 
             } else if (itemId == R.id.menu_item_logout) {
@@ -52,7 +60,7 @@ public class inicioActivity extends AppCompatActivity {
 
                 Intent intent = new Intent(inicioActivity.this, Login.class);
                 startActivity(intent);
-                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out); // ✅ Animación al cerrar sesión
+                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
                 finish();
                 return true;
             }
@@ -73,13 +81,13 @@ public class inicioActivity extends AppCompatActivity {
             if (itemId == R.id.menu_item_new_chat) {
                 Intent intent = new Intent(inicioActivity.this, UsuariosActivos.class);
                 startActivity(intent);
-                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right); // ✅ Animación al abrir actividad
+                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
                 return true;
 
             } else if (itemId == R.id.menu_item_chat_grupal) {
                 Intent intent = new Intent(inicioActivity.this, GrupoChatActivity.class);
                 startActivity(intent);
-                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right); // ✅ Animación al abrir actividad
+                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
                 return true;
             }
 
@@ -92,6 +100,6 @@ public class inicioActivity extends AppCompatActivity {
     @Override
     public void finish() {
         super.finish();
-        overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right); // ✅ Animación al regresar
+        overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
     }
 }
