@@ -14,6 +14,7 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Base64;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
@@ -58,9 +59,7 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
-
 import okhttp3.MultipartBody;
-import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.http.*;
@@ -375,6 +374,11 @@ public class chatActivity extends AppCompatActivity {
         messageData.put("usuario_id", currentUserId);
         messageData.put("fecha_creado", FieldValue.serverTimestamp());
         db.collection("notificacion").add(messageData)
+                .addOnSuccessListener(documentReference -> {
+                    if (!currentUserId.equals(receiverId)) {
+                        obtenerTokenYNotificar(receiverId, mensajeTexto);
+                    }
+                })
                 .addOnFailureListener(e -> showToast("Error al enviar el mensaje"));
     }
     private void guardarMensajeAudio(String audioUrl, String duracion) {
@@ -523,4 +527,54 @@ public class chatActivity extends AppCompatActivity {
 
         return archivo;
     }
+
+    private void render(String receptorToken, String titulo, String contenido, String idChat) {
+        okhttp3.OkHttpClient render = new okhttp3.OkHttpClient();
+
+        org.json.JSONObject datos = new org.json.JSONObject();
+        try {
+            datos.put("token", receptorToken);
+            datos.put("titulo", titulo);
+            datos.put("mensaje", contenido);
+            datos.put("chatId", idChat);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        okhttp3.RequestBody cuerpoSolicitud = okhttp3.RequestBody.create(
+                datos.toString(),
+                okhttp3.MediaType.parse("application/json")
+        );
+
+        okhttp3.Request solicitud = new okhttp3.Request.Builder()
+                .url("https://minechap-app-backend.onrender.com/enviarNotificacion")
+                .post(cuerpoSolicitud)
+                .build();
+
+        new Thread(() -> {
+            try (okhttp3.Response respuesta = render.newCall(solicitud).execute()) {
+                if (respuesta.isSuccessful()) {
+                    Log.d("NOTIF_RENDER", "Notificación enviada");
+                } else {
+                    Log.e("NOTIF_RENDER", "Error al enviar notificación: " + respuesta.code());
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void obtenerTokenYNotificar(String receptorId, String mensaje) {
+        db.collection("usuarios").document(receptorId).get()
+                .addOnSuccessListener(document -> {
+                    String token = document.getString("token");
+                    if (token != null && !token.isEmpty()) {
+                        render(token, "Nuevo mensaje", mensaje, chatId);
+                    }
+                })
+                .addOnFailureListener(e -> Log.e("NOTIF_RENDER", "Error obteniendo token del usuario"));
+    }
+
+
 }

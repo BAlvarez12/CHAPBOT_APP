@@ -1,6 +1,7 @@
 package com.example.minechapapp;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -14,6 +15,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.messaging.FirebaseMessaging;
+
 public class Login extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
@@ -98,6 +101,7 @@ public class Login extends AppCompatActivity {
                         if (document.exists()) {
                             String nombre = document.getString("nombre");
                             Toast.makeText(this, "Bienvenido, " + nombre, Toast.LENGTH_SHORT).show();
+                            actualizarTokenFCM(uid);
                             goToInicioActivity();
                         } else {
                             mAuth.signOut();
@@ -121,4 +125,35 @@ public class Login extends AppCompatActivity {
             loadingOverlay.setVisibility(show ? View.VISIBLE : View.GONE);
         }
     }
+
+    private void actualizarTokenFCM(String userId) {
+        FirebaseMessaging.getInstance().getToken()
+                .addOnSuccessListener(token -> {
+                    FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+                    db.collection("usuarios").document(userId).get()
+                            .addOnSuccessListener(document -> {
+                                String tokenGuardado = document.getString("token");
+
+                                if (tokenGuardado == null || !tokenGuardado.equals(token)) {
+                                    db.collection("usuarios").document(userId)
+                                            .update("token", token)
+                                            .addOnSuccessListener(aVoid -> Log.d("FCM_TOKEN", "Token actualizado"))
+                                            .addOnFailureListener(e -> Log.e("FCM_TOKEN", "Error al actualizar token", e));
+                                } else {
+                                    Log.d("FCM_TOKEN", "Token ya estaba actualizado");
+                                }
+                            });
+                });
+    }
+    private void guardarTokenEnFirestore(String userId, String token) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("usuarios").document(userId)
+                .update("token", token)
+                .addOnSuccessListener(aVoid -> Log.d("TOKEN", "Token guardado correctamente"))
+                .addOnFailureListener(e -> Log.e("TOKEN", "Error al guardar token", e));
+    }
+
+
+
 }
