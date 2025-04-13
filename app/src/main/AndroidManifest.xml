@@ -46,5 +46,15 @@
         <activity
         android:name=".GrupoActivity"
         android:exported="true" />
+        <activity
+            android:name=".EditPerfil"
+            android:exported="true" />
+        <service
+            android:name=".Notificaciones_push"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 </application>
     </manifest>

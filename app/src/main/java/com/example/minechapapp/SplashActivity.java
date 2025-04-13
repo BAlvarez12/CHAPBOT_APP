@@ -1,7 +1,10 @@
 package com.example.minechapapp;
 
 import android.annotation.SuppressLint;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -29,10 +32,32 @@ public class SplashActivity extends AppCompatActivity {
         setContentView(R.layout.activity_splash);
         Log.d(TAG, "onCreate: Iniciando SplashActivity...");
 
+        crearCanalDeNotificacion();
+
         handler = new Handler(Looper.getMainLooper());
         splashRunnable = this::goToNextScreen;
 
         handler.postDelayed(splashRunnable, SPLASH_DURATION);
+    }
+
+    private void crearCanalDeNotificacion() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String canalId = "MINECHAP_CHANNEL";
+            CharSequence nombre = "Notificaciones MineChap";
+            String descripcion = "Canal para mensajes tipo chat";
+
+            NotificationChannel canal = new NotificationChannel(
+                    canalId,
+                    nombre,
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            canal.setDescription(descripcion);
+
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            manager.createNotificationChannel(canal);
+
+            Log.d(TAG, "Canal de notificación creado");
+        }
     }
 
     private void goToNextScreen() {
