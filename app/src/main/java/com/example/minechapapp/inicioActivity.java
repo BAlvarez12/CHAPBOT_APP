@@ -10,6 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 public class inicioActivity extends AppCompatActivity {
 
@@ -30,9 +31,18 @@ public class inicioActivity extends AppCompatActivity {
         btnSettings.setOnClickListener(this::showPopupMenu);
         btnAdd.setOnClickListener(this::mostrarMenuAdd);
 
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, new ChatsFragmento())
-                .commit();
+        // ✅ Verificamos que el usuario esté autenticado antes de cargar el fragmento
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user != null) {
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, new ChatsFragmento())
+                    .commit();
+        } else {
+            // ⚠️ Si no está logueado, redirige al Login
+            Intent intent = new Intent(inicioActivity.this, Login.class);
+            startActivity(intent);
+            finish();
+        }
     }
 
     private void showPopupMenu(View anchor) {

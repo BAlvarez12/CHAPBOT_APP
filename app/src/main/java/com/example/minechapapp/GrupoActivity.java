@@ -182,12 +182,22 @@ public class GrupoActivity extends AppCompatActivity {
         messageData.put("fecha_creado", FieldValue.serverTimestamp());
 
         db.collection("notificacion").add(messageData)
-                .addOnSuccessListener(documentReference -> Log.d(TAG, "Mensaje de texto enviado"))
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "Mensaje de texto enviado");
+
+                    // ✅ Actualiza el documento del chat
+                    Map<String, Object> chatUpdate = new HashMap<>();
+                    chatUpdate.put("ultimo_mensaje", mensajeTexto);
+                    chatUpdate.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+
+                    db.collection("chats").document(chatId).update(chatUpdate);
+                })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error al guardar el mensaje en Firestore", e);
                     showToast("Error al enviar el mensaje");
                 });
     }
+
     private void subirImagenAFirestore(Uri imagenUri) {
         showToast("Función para enviar imágenes aún no implementada");
     }

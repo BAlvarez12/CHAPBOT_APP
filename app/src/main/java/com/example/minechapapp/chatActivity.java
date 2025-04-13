@@ -58,6 +58,8 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
+import com.google.firebase.firestore.ListenerRegistration;
+
 
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
@@ -82,22 +84,34 @@ public class chatActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private ImageButton btnBack;
     private String currentUserId, receiverId, usuarioA, usuarioB, chatId;
+    private ListenerRegistration mensajesListener;
+
+    private boolean permisoToastMostrado = false;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+
+
+        permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
+                .getBoolean("permiso_audio_mostrado", false);
+
         inicializarComponentes();
         configurarRecyclerView();
         db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         receiverId = getIntent().getStringExtra("USER_ID");
         String nombreUsuario = getIntent().getStringExtra("nombreUsuario");
+
         if (TextUtils.isEmpty(receiverId)) {
             showToast("Error: receiverId no proporcionado");
             finish();
             return;
         }
+
         tvNombreUsuario.setText(!TextUtils.isEmpty(nombreUsuario) ? nombreUsuario : "Chat");
 
         // Cargar foto de perfil desde Base64
@@ -110,9 +124,11 @@ public class chatActivity extends AppCompatActivity {
             usuarioA = receiverId;
             usuarioB = currentUserId;
         }
+
         chatId = generarChatId(usuarioA, usuarioB);
         loadMessages();
         loadLastMessageStatus();
+
         Animation clickAnimation = AnimationUtils.loadAnimation(this, R.anim.click);
         btnAudio.setOnTouchListener((v, event) -> {
             switch (event.getAction()) {
@@ -134,10 +150,12 @@ public class chatActivity extends AppCompatActivity {
             }
             return false;
         });
+
         btnEnviar.setOnClickListener(v -> {
             v.startAnimation(clickAnimation);
             enviarMensaje();
         });
+
         btnBack.setOnClickListener(v -> onBackPressed());
 
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
@@ -149,6 +167,7 @@ public class chatActivity extends AppCompatActivity {
                     android.Manifest.permission.READ_EXTERNAL_STORAGE
             }, 200);
         }
+
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -161,14 +180,17 @@ public class chatActivity extends AppCompatActivity {
                     }
                 }
         );
+
         btnEmoji.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_PICK);
             intent.setType("image/*");
             imagePickerLauncher.launch(intent);
         });
+
         editMensaje.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (s.toString().trim().isEmpty()) {
@@ -177,10 +199,12 @@ public class chatActivity extends AppCompatActivity {
                     mostrarBotonEnviar();
                 }
             }
+
             @Override
             public void afterTextChanged(Editable s) {}
         });
     }
+
     private void cargarFotoPerfil(String userId) {
         db.collection("usuarios").document(userId)
                 .get()
@@ -214,7 +238,15 @@ public class chatActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 200) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                showToast("Permiso concedido, mantén presionado para grabar");
+                // Solo mostrar el mensaje una vez, y guardarlo en SharedPreferences
+                if (!permisoToastMostrado) {
+                    showToast("Permiso concedido, mantén presionado para grabar");
+                    permisoToastMostrado = true;
+                    getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
+                            .edit()
+                            .putBoolean("permiso_audio_mostrado", true)
+                            .apply();
+                }
             } else {
                 showToast("Debes aceptar el permiso para grabar audio");
             }
@@ -224,6 +256,7 @@ public class chatActivity extends AppCompatActivity {
     private boolean tienePermisosDeAudio() {
         return ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
+
 
     private void iniciarGrabacionAudio() {
         if (!tienePermisosDeAudio()) {
@@ -260,7 +293,7 @@ public class chatActivity extends AppCompatActivity {
                 mediaRecorder = null;
                 isRecording = false;
                 tvGrabando.setVisibility(View.GONE);
-                showToast("Audio guardado");
+
                 File audioFile = new File(audioFilePath);
                 subirAudioASupabase(audioFile);
             } catch (Exception e) {
@@ -374,9 +407,19 @@ public class chatActivity extends AppCompatActivity {
         messageData.put("mensaje", mensajeTexto);
         messageData.put("usuario_id", currentUserId);
         messageData.put("fecha_creado", FieldValue.serverTimestamp());
+
         db.collection("notificacion").add(messageData)
+                .addOnSuccessListener(documentReference -> {
+                    // ✅ Actualiza el chat con el último mensaje
+                    Map<String, Object> updateChat = new HashMap<>();
+                    updateChat.put("ultimo_mensaje", mensajeTexto);
+                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+
+                    db.collection("chats").document(chatId).update(updateChat);
+                })
                 .addOnFailureListener(e -> showToast("Error al enviar el mensaje"));
     }
+
     private void guardarMensajeAudio(String audioUrl, String duracion) {
         Map<String, Object> mensajeData = new HashMap<>();
         mensajeData.put("chat_id", chatId);
@@ -384,12 +427,21 @@ public class chatActivity extends AppCompatActivity {
         mensajeData.put("duracion", duracion);
         mensajeData.put("usuario_id", currentUserId);
         mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
+
         db.collection("notificacion").add(mensajeData)
-                .addOnSuccessListener(documentReference -> showToast("Mensaje de audio guardado"))
+                .addOnSuccessListener(documentReference -> {
+                    // ✅ Actualiza el chat con tipo de mensaje "Audio"
+                    Map<String, Object> updateChat = new HashMap<>();
+                    updateChat.put("ultimo_mensaje", "🎤 Audio");
+                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+
+                    db.collection("chats").document(chatId).update(updateChat);
+                })
                 .addOnFailureListener(e -> showToast("Error al guardar audio"));
     }
+
     private void loadMessages() {
-        db.collection("notificacion")
+        mensajesListener = db.collection("notificacion")
                 .whereEqualTo("chat_id", chatId)
                 .orderBy("fecha_creado", Query.Direction.ASCENDING)
                 .addSnapshotListener((snapshots, e) -> {
@@ -397,6 +449,7 @@ public class chatActivity extends AppCompatActivity {
                         showToast("Error al cargar mensajes: " + e.getMessage());
                         return;
                     }
+
                     listaMensajes.clear();
                     if (snapshots != null && !snapshots.isEmpty()) {
                         for (DocumentSnapshot doc : snapshots.getDocuments()) {
@@ -420,10 +473,10 @@ public class chatActivity extends AppCompatActivity {
                         recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                     } else {
                         mensajeAdapter.notifyDataSetChanged();
-                        showToast("No hay mensajes");
                     }
                 });
     }
+
     private long getDuracionAudio(String filePath) {
         try {
             MediaPlayer player = new MediaPlayer();
@@ -458,7 +511,7 @@ public class chatActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                 if (response.isSuccessful()) {
-                    runOnUiThread(() -> showToast("Audio subido a Supabase exitosamente"));
+
                     String audioUrl = "https://vlfuswavnjmkucepynxb.supabase.co/storage/v1/object/public/minechap/" + audioFile.getName();
                     long duracion = getDuracionAudio(audioFile.getAbsolutePath());
                     String duracionTexto = convertirDuracion(duracion);
@@ -495,6 +548,7 @@ public class chatActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> tvEstadoUsuario.setText("Error al cargar estado"));
     }
+
     private String generarChatId(String id1, String id2) {
         return id1 + "_" + id2;
     }
@@ -523,4 +577,13 @@ public class chatActivity extends AppCompatActivity {
 
         return archivo;
     }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mensajesListener != null) {
+            mensajesListener.remove();
+            mensajesListener = null;
+        }
+    }
+
 }
