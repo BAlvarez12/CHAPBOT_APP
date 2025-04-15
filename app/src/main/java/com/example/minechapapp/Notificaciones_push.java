@@ -56,7 +56,6 @@ public class Notificaciones_push extends FirebaseMessagingService {
                     NotificationManager.IMPORTANCE_HIGH);
             manager.createNotificationChannel(canal);
         }
-
         manager.notify(1, notificacion.build());
     }
 }

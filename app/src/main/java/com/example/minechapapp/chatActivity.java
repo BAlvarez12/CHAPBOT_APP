@@ -410,7 +410,6 @@ public class chatActivity extends AppCompatActivity {
 
         db.collection("notificacion").add(messageData)
                 .addOnSuccessListener(documentReference -> {
-                    // ✅ Actualiza el chat con el último mensaje
                     Map<String, Object> updateChat = new HashMap<>();
                     updateChat.put("ultimo_mensaje", mensajeTexto);
                     updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
@@ -430,7 +429,6 @@ public class chatActivity extends AppCompatActivity {
 
         db.collection("notificacion").add(mensajeData)
                 .addOnSuccessListener(documentReference -> {
-                    // ✅ Actualiza el chat con tipo de mensaje "Audio"
                     Map<String, Object> updateChat = new HashMap<>();
                     updateChat.put("ultimo_mensaje", "🎤 Audio");
                     updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
