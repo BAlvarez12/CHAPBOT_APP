@@ -25,13 +25,7 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.FieldValue;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 
 public class ChatsFragmento extends Fragment {
 
@@ -76,12 +70,10 @@ public class ChatsFragmento extends Fragment {
         super.onDestroyView();
         if (listenerChats != null) listenerChats.remove();
     }
-
     private void escucharCambiosEnChatsOrdenados() {
         listaDeChats.clear();
         chatsCargados.clear();
         chatAdap.notifyDataSetChanged();
-
         listenerChats = db.collection("chats")
                 .orderBy("ultimo_mensaje_timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener((snapshots, e) -> {
@@ -89,40 +81,33 @@ public class ChatsFragmento extends Fragment {
                         Log.e(TAG, "Error escuchando chats: ", e);
                         return;
                     }
-
-                    listaDeChats.clear();
-
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
                         String chatId = doc.getId();
                         String tipoChat = doc.getString("tipo_chat");
                         List<String> eliminados = (List<String>) doc.get("eliminado_por");
-
                         if (eliminados != null && eliminados.contains(currentUserId)) continue;
-
                         Date timestamp = doc.getDate("ultimo_mensaje_timestamp");
                         String hora = (timestamp != null) ? new SimpleDateFormat("hh:mm a", Locale.getDefault()).format(timestamp) : "";
-
                         if ("97XeeFNzro7xurmKwKeh".equals(tipoChat)) {
-                            // Chat grupal
                             String nombreGrupo = doc.getString("nombre_grupo");
-
-                            String ultimoMensaje;
+                            String ultimoMensaje = "";
                             if (doc.contains("audio_url")) {
                                 ultimoMensaje = "🎤 Audio";
-                            } else {
-                                ultimoMensaje = doc.getString("ultimo_mensaje");
                             }
-
-                            Chat_individual chat = new Chat_individual(chatId, nombreGrupo,
-                                    ultimoMensaje != null ? ultimoMensaje : "Sin mensaje", hora);
+                            String textoMensaje = doc.getString("ultimo_mensaje");
+                            if (!TextUtils.isEmpty(textoMensaje)) {
+                                ultimoMensaje = textoMensaje;
+                            }
+                            if (TextUtils.isEmpty(ultimoMensaje)) {
+                                ultimoMensaje = "Sin mensaje";
+                            }
+                            Chat_individual chat = new Chat_individual(chatId, nombreGrupo, ultimoMensaje, hora);
                             chat.setTimestamp(timestamp);
-                            listaDeChats.add(chat);
+                            chatAdap.actualizarListaSinDuplicados(Collections.singletonList(chat));
                         } else {
-                            // Chat individual
                             String usuarioA = doc.getString("usuario_a");
                             String usuarioB = doc.getString("usuario_b");
                             String otherUserId = currentUserId.equals(usuarioA) ? usuarioB : usuarioA;
-
                             if (!TextUtils.isEmpty(otherUserId)) {
                                 cargarNombreYCrearChat(chatId, otherUserId, doc, timestamp);
                             }
@@ -143,23 +128,29 @@ public class ChatsFragmento extends Fragment {
                 .addOnSuccessListener(userDoc -> {
                     String nombreUsuario = userDoc.getString("nombre");
 
-                    String ultimoMensaje;
+                    String ultimoMensaje = "";
+
                     if (doc.contains("audio_url")) {
                         ultimoMensaje = "🎤 Audio";
-                    } else {
-                        ultimoMensaje = doc.getString("ultimo_mensaje");
+                    }
+                    String textoMensaje = doc.getString("ultimo_mensaje");
+                    if (!TextUtils.isEmpty(textoMensaje)) {
+                        ultimoMensaje = textoMensaje;
+                    }
+
+                    if (TextUtils.isEmpty(ultimoMensaje)) {
+                        ultimoMensaje = "Sin mensaje";
                     }
                     String hora = (timestamp != null) ? new SimpleDateFormat("hh:mm a", Locale.getDefault()).format(timestamp) : "";
-
                     Chat_individual chat = new Chat_individual(
                             chatId,
                             otherUserId,
                             nombreUsuario != null ? nombreUsuario : "Usuario",
-                            ultimoMensaje != null ? ultimoMensaje : "Sin mensaje",
+                            ultimoMensaje,
                             hora
                     );
                     chat.setTimestamp(timestamp);
-                    listaDeChats.add(chat);
+                    chatAdap.actualizarListaSinDuplicados(Collections.singletonList(chat));
 
                     Collections.sort(listaDeChats, (a, b) -> {
                         Date t1 = a.getTimestamp();
@@ -177,6 +168,7 @@ public class ChatsFragmento extends Fragment {
             public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
                 return false;
             }
+
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 int position = viewHolder.getAdapterPosition();
