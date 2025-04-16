@@ -17,20 +17,30 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
+import android.media.MediaPlayer;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -40,6 +50,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import okhttp3.MultipartBody;
+import retrofit2.http.Header;
+import retrofit2.http.Multipart;
+import retrofit2.http.POST;
+import retrofit2.http.Part;
 
 public class GrupoActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
@@ -204,8 +220,75 @@ public class GrupoActivity extends AppCompatActivity {
         btnAudio.setVisibility(View.VISIBLE);
     }
 
+    private long getDuracionAudio(String filePath) {
+        try {
+            MediaPlayer player = new MediaPlayer();
+            player.setDataSource(filePath);
+            player.prepare();
+            int duration = player.getDuration();
+            player.release();
+            return duration;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+    private String convertirDuracion(long milisegundos) {
+        int segundos = (int) (milisegundos / 1000);
+        int minutos = segundos / 60;
+        segundos %= 60;
+        return String.format(Locale.getDefault(), "%d:%02d", minutos, segundos);
+    }
+    private void guardarMensajeAudio(String audioUrl, String duracion) {
+        Map<String, Object> mensajeData = new HashMap<>();
+        mensajeData.put("chat_id", chatId);
+        mensajeData.put("audio_url", audioUrl);
+        mensajeData.put("duracion", duracion);
+        mensajeData.put("usuario_id", currentUserId);
+        mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
+
+        db.collection("notificacion").add(mensajeData)
+                .addOnSuccessListener(documentReference -> {
+                    Map<String, Object> updateChat = new HashMap<>();
+                    updateChat.put("ultimo_mensaje", "🎤 Audio");
+                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+
+                    db.collection("chats").document(chatId).update(updateChat);
+                })
+                .addOnFailureListener(e -> showToast("Error al guardar audio"));
+    }
     private void subirAudioASupabase(File audioFile) {
-        showToast("Función para subir audio aún no implementada");
+        String supabaseUrl = "https://vlfuswavnjmkucepynxb.supabase.co";
+        String supabaseBearerToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(supabaseUrl)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        SupabaseService service = retrofit.create(SupabaseService.class);
+
+        RequestBody requestBody = RequestBody.create(MediaType.parse("audio/3gp"), audioFile);
+        MultipartBody.Part part = MultipartBody.Part.createFormData("file", audioFile.getName(), requestBody);
+
+        Call<ResponseBody> call = service.uploadAudio(supabaseBearerToken, audioFile.getName(), part);
+        call.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                if (response.isSuccessful()) {
+                    String audioUrl = supabaseUrl + "/storage/v1/object/public/minechap/" + audioFile.getName();
+                    long duracion = getDuracionAudio(audioFile.getAbsolutePath());
+                    String duracionTexto = convertirDuracion(duracion);
+                    guardarMensajeAudio(audioUrl, duracionTexto);
+                } else {
+                    showToast("Error al subir audio: " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                t.printStackTrace();
+                showToast("Fallo al conectar con Supabase");
+            }
+        });
     }
 
     private void obtenerNombreUsuarioActual() {
@@ -239,12 +322,10 @@ public class GrupoActivity extends AppCompatActivity {
 
     private void enviarMensaje() {
         String mensajeTexto = editMensaje.getText().toString().trim();
-
         if (mensajeTexto.isEmpty() && imageUriSeleccionada == null) {
             showToast("Debes escribir un mensaje o enviar una imagen");
             return;
         }
-
         if (!mensajeTexto.isEmpty()) {
             listaMensajes.add(new MensajeModel(mensajeTexto, true, nombreActualUsuario, new Date()));
             mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
@@ -252,14 +333,12 @@ public class GrupoActivity extends AppCompatActivity {
             guardarMensajeEnFirestore(mensajeTexto);
             editMensaje.setText("");
         }
-
         if (imageUriSeleccionada != null) {
             subirImagenAFirestore(imageUriSeleccionada);
             imgPreview.setVisibility(ImageView.GONE);
             imageUriSeleccionada = null;
         }
     }
-
     private void guardarMensajeEnFirestore(String mensajeTexto) {
         Map<String, Object> mensajeData = new HashMap<>();
         mensajeData.put("chat_id", chatId);
@@ -270,11 +349,9 @@ public class GrupoActivity extends AppCompatActivity {
 
         db.collection("notificacion").add(mensajeData);
     }
-
     private void subirImagenAFirestore(Uri imagenUri) {
         showToast("Función para subir imágenes aún no implementada");
     }
-
     private void loadMessages() {
         db.collection("notificacion")
                 .whereEqualTo("chat_id", chatId)
@@ -287,19 +364,23 @@ public class GrupoActivity extends AppCompatActivity {
 
                     listaMensajes.clear();
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                        String mensaje = doc.getString("mensaje");
                         String usuarioId = doc.getString("usuario_id");
                         String nombreUsuario = doc.getString("nombre_usuario");
                         Date fecha = doc.getDate("fecha_creado");
-
                         boolean esEnviado = usuarioId != null && usuarioId.equals(currentUserId);
-                        listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha));
+                        String audioUrl = doc.getString("audio_url");
+                        String duracion = doc.getString("duracion");
+                        if (audioUrl != null && duracion != null) {
+                            listaMensajes.add(new MensajeModel(audioUrl, duracion, esEnviado, fecha));
+                        } else {
+                            String mensaje = doc.getString("mensaje");
+                            listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha));
+                        }
                     }
-                    mensajeAdapter.notifyDataSetChanged();
-                    recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                 });
     }
     private void showToast(String mensaje) {
         Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show();
     }
+
 }

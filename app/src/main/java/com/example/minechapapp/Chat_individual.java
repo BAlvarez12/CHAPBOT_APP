@@ -11,7 +11,7 @@ public class Chat_individual {
     private String hora;
     private boolean esGrupal;
     private String tipoChat;
-    private Date timestamp; // ✅ NUEVO CAMPO
+    private Date timestamp;
 
     public Chat_individual() {}
 

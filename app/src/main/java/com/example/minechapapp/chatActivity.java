@@ -85,7 +85,6 @@ public class chatActivity extends AppCompatActivity {
     private ImageButton btnBack;
     private String currentUserId, receiverId, usuarioA, usuarioB, chatId;
     private ListenerRegistration mensajesListener;
-
     private boolean permisoToastMostrado = false;
 
 
