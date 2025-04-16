@@ -88,12 +88,10 @@ public class chatActivity extends AppCompatActivity {
     private boolean permisoToastMostrado = false;
 
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
-
 
         permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
                 .getBoolean("permiso_audio_mostrado", false);
@@ -125,8 +123,35 @@ public class chatActivity extends AppCompatActivity {
         }
 
         chatId = generarChatId(usuarioA, usuarioB);
-        loadMessages();
-        loadLastMessageStatus();
+
+        // Remover UID de eliminado_por si está presente
+        db.collection("chats").document(chatId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        List<String> eliminados = (List<String>) doc.get("eliminado_por");
+                        if (eliminados != null && eliminados.contains(currentUserId)) {
+                            db.collection("chats").document(chatId)
+                                    .update("eliminado_por", FieldValue.arrayRemove(currentUserId))
+                                    .addOnSuccessListener(aVoid -> {
+                                        // Cargamos mensajes después de restaurar chat
+                                        loadMessages();
+                                        loadLastMessageStatus();
+                                    });
+                        } else {
+                            loadMessages();
+                            loadLastMessageStatus();
+                        }
+                    } else {
+                        loadMessages();
+                        loadLastMessageStatus();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    showToast("Error al verificar eliminación previa");
+                    loadMessages();
+                    loadLastMessageStatus();
+                });
 
         Animation clickAnimation = AnimationUtils.loadAnimation(this, R.anim.click);
         btnAudio.setOnTouchListener((v, event) -> {
@@ -185,6 +210,8 @@ public class chatActivity extends AppCompatActivity {
             intent.setType("image/*");
             imagePickerLauncher.launch(intent);
         });
+
+
 
         editMensaje.addTextChangedListener(new TextWatcher() {
             @Override

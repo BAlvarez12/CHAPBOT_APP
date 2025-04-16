@@ -71,9 +71,9 @@ public class ChatsFragmento extends Fragment {
         if (listenerChats != null) listenerChats.remove();
     }
     private void escucharCambiosEnChatsOrdenados() {
-        listaDeChats.clear();
         chatsCargados.clear();
-        chatAdap.notifyDataSetChanged();
+        if (listenerChats != null) listenerChats.remove();
+
         listenerChats = db.collection("chats")
                 .orderBy("ultimo_mensaje_timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener((snapshots, e) -> {
@@ -186,9 +186,25 @@ public class ChatsFragmento extends Fragment {
         itemTouchHelper.attachToRecyclerView(recyclerView);
     }
     private void eliminarChat(String chatId) {
+        // Oculta el chat para el usuario actual
         db.collection("chats").document(chatId)
                 .update("eliminado_por", FieldValue.arrayUnion(currentUserId))
-                .addOnSuccessListener(aVoid -> Log.d(TAG, "Chat ocultado correctamente"))
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Chat ocultado correctamente");
+
+                    // Luego elimina todos los mensajes del chat
+                    db.collection("notificacion")
+                            .whereEqualTo("chat_id", chatId)
+                            .get()
+                            .addOnSuccessListener(querySnapshot -> {
+                                for (DocumentSnapshot doc : querySnapshot) {
+                                    doc.getReference().delete();
+                                }
+                                Log.d(TAG, "Todos los mensajes del chat eliminados");
+                            })
+                            .addOnFailureListener(e -> Log.e(TAG, "Error al eliminar mensajes del chat", e));
+                })
                 .addOnFailureListener(e -> Log.e(TAG, "Error al ocultar el chat", e));
     }
+
 }

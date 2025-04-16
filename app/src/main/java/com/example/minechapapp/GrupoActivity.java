@@ -1,4 +1,5 @@
 package com.example.minechapapp;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -17,26 +18,31 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.*;
 import retrofit2.converter.gson.GsonConverterFactory;
+
 public class GrupoActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
     private TextView tvNombreGrupo;
@@ -53,31 +59,63 @@ public class GrupoActivity extends AppCompatActivity {
     private MediaRecorder mediaRecorder;
     private boolean isRecording = false;
     private String audioFilePath;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+
         inicializarComponentes();
         configurarRecyclerMensajes();
         configurarPickImagen();
         configurarGrabacionAudio();
+
         db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         chatId = getIntent().getStringExtra("chatId");
         nombreGrupo = getIntent().getStringExtra("nombreGrupo");
+
         if (TextUtils.isEmpty(chatId)) {
             showToast("Error: ID del chat no proporcionado");
             finish();
             return;
         }
+
         tvNombreGrupo.setText(!TextUtils.isEmpty(nombreGrupo) ? nombreGrupo : "Chat grupal");
-        obtenerNombreUsuarioActual();
-        verificarChatGrupal();
-        loadMessages();
+
+        db.collection("chats").document(chatId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        List<String> eliminados = (List<String>) documentSnapshot.get("eliminado_por");
+                        if (eliminados != null && eliminados.contains(currentUserId)) {
+                            db.collection("chats").document(chatId)
+                                    .update("eliminado_por", FieldValue.arrayRemove(currentUserId))
+                                    .addOnSuccessListener(aVoid -> continuarCargaDelChat())
+                                    .addOnFailureListener(e -> continuarCargaDelChat());
+                        } else {
+                            continuarCargaDelChat();
+                        }
+                    } else {
+                        continuarCargaDelChat();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    showToast("Error al verificar chat eliminado");
+                    continuarCargaDelChat();
+                });
+
         btnEmoji.setOnClickListener(v -> seleccionarImagen());
         btnEnviar.setOnClickListener(v -> enviarMensaje());
         btnBack.setOnClickListener(v -> onBackPressed());
     }
+
+    private void continuarCargaDelChat() {
+        obtenerNombreUsuarioActual();
+        verificarChatGrupal();
+        loadMessages();
+    }
+
     private void inicializarComponentes() {
         tvNombreGrupo = findViewById(R.id.tvNombreUsuario);
         recyclerMensajes = findViewById(R.id.recyclerMensajes);
