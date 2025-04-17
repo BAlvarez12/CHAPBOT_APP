@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#075E54</color>
-    <color name="second">#ECE5DD</color>
+    <color name="primary">#2B2E4A</color>
+    <color name="second">#5C6BC0</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFF</color>
     <color name="purple_500">#6200EE</color>
@@ -19,4 +19,8 @@
     <color name="input_bar_background">#E1F5FE</color>
     <color name="bubble_sent_light">#DCF8C6</color>
     <color name="bubble_sent_dark">#2F3136</color>
+    <color name="sky">#E3F2FD</color>
+    <color name="textDark">#212121</color>
+    <color name="textGray">#757575</color>
+    <color name="indigo">#5C6BC0</color>
 </resources>

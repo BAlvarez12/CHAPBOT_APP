@@ -2,7 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/menu_item_perfil"
-        android:title="Perfil" />
+        android:title="Editar perfil" />
+
     <item
         android:id="@+id/menu_item_logout"
         android:title="Cerrar sesión" />
