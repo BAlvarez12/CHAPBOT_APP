@@ -1,8 +1,10 @@
 package com.example.minechapapp;
 
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.MenuItem;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.Toast;
@@ -11,6 +13,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 public class inicioActivity extends AppCompatActivity {
 
@@ -24,61 +29,80 @@ public class inicioActivity extends AppCompatActivity {
         setContentView(R.layout.activity_inicio);
 
         mAuth = FirebaseAuth.getInstance();
-
         btnSettings = findViewById(R.id.btn_settings);
         btnAdd = findViewById(R.id.btn_add);
 
-        btnSettings.setOnClickListener(this::showPopupMenu);
+        btnSettings.bringToFront();
+        btnSettings.setZ(100f);
+
+        btnSettings.setOnClickListener(v -> showPopupMenu(v));
         btnAdd.setOnClickListener(this::mostrarMenuAdd);
 
-        // ✅ Verificamos que el usuario esté autenticado antes de cargar el fragmento
         FirebaseUser user = mAuth.getCurrentUser();
         if (user != null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.fragment_container, new ChatsFragmento())
                     .commit();
         } else {
-            // ⚠️ Si no está logueado, redirige al Login
-            Intent intent = new Intent(inicioActivity.this, Login.class);
-            startActivity(intent);
+            startActivity(new Intent(inicioActivity.this, Login.class));
             finish();
         }
     }
 
     private void showPopupMenu(View anchor) {
-        PopupMenu popupMenu = new PopupMenu(inicioActivity.this, anchor);
-        popupMenu.getMenuInflater().inflate(R.menu.menu_settings, popupMenu.getMenu());
+        try {
+            PopupMenu popupMenu = new PopupMenu(inicioActivity.this, anchor);
+            popupMenu.getMenuInflater().inflate(R.menu.menu_settings, popupMenu.getMenu());
 
-        popupMenu.setOnMenuItemClickListener(item -> {
-            int itemId = item.getItemId();
-
-            if (itemId == R.id.menu_item_perfil) {
-                Toast.makeText(inicioActivity.this, "Perfil seleccionado", Toast.LENGTH_SHORT).show();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                popupMenu.setForceShowIcon(true);
+            } else {
                 try {
-                    Intent intent = new Intent(inicioActivity.this, EditPerfil.class);
-                    startActivity(intent);
-                    overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
+                    Field[] fields = popupMenu.getClass().getDeclaredFields();
+                    for (Field field : fields) {
+                        if ("mPopup".equals(field.getName())) {
+                            field.setAccessible(true);
+                            Object menuPopupHelper = field.get(popupMenu);
+                            Class<?> classPopupHelper = Class.forName(menuPopupHelper.getClass().getName());
+                            Method setForceIcons = classPopupHelper.getMethod("setForceShowIcon", boolean.class);
+                            setForceIcons.invoke(menuPopupHelper, true);
+                            break;
+                        }
+                    }
                 } catch (Exception e) {
-                    Toast.makeText(inicioActivity.this, "Error al abrir perfil: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     e.printStackTrace();
                 }
-                return true;
-
-            } else if (itemId == R.id.menu_item_logout) {
-                mAuth.signOut();
-                Toast.makeText(inicioActivity.this, "Sesión cerrada", Toast.LENGTH_SHORT).show();
-
-                Intent intent = new Intent(inicioActivity.this, Login.class);
-                startActivity(intent);
-                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                finish();
-                return true;
             }
 
-            return false;
-        });
+            popupMenu.setOnMenuItemClickListener(item -> {
+                int itemId = item.getItemId();
+                if (itemId == R.id.menu_item_perfil) {
+                    Toast.makeText(inicioActivity.this, "Perfil seleccionado", Toast.LENGTH_SHORT).show();
+                    try {
+                        Intent intent = new Intent(inicioActivity.this, EditPerfil.class);
+                        startActivity(intent);
+                        overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
+                    } catch (Exception e) {
+                        Toast.makeText(inicioActivity.this, "Error al abrir perfil: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        e.printStackTrace();
+                    }
+                    return true;
+                } else if (itemId == R.id.menu_item_logout) {
+                    mAuth.signOut();
+                    Toast.makeText(inicioActivity.this, "Sesión cerrada", Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(inicioActivity.this, Login.class));
+                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                    finish();
+                    return true;
+                }
+                return false;
+            });
 
-        popupMenu.show();
+            popupMenu.show();
+
+        } catch (Exception ex) {
+            Toast.makeText(this, "Error al mostrar menú: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void mostrarMenuAdd(View anchor) {
@@ -87,20 +111,15 @@ public class inicioActivity extends AppCompatActivity {
 
         popupMenu.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
-
             if (itemId == R.id.menu_item_new_chat) {
-                Intent intent = new Intent(inicioActivity.this, UsuariosActivos.class);
-                startActivity(intent);
+                startActivity(new Intent(inicioActivity.this, UsuariosActivos.class));
                 overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
                 return true;
-
             } else if (itemId == R.id.menu_item_chat_grupal) {
-                Intent intent = new Intent(inicioActivity.this, GrupoChatActivity.class);
-                startActivity(intent);
+                startActivity(new Intent(inicioActivity.this, GrupoChatActivity.class));
                 overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
                 return true;
             }
-
             return false;
         });
 

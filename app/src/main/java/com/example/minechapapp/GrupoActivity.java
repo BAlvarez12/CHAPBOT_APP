@@ -3,8 +3,6 @@ package com.example.minechapapp;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
@@ -12,7 +10,6 @@ import android.os.Environment;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.util.Base64;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
@@ -34,11 +31,15 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 public class GrupoActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
@@ -46,7 +47,7 @@ public class GrupoActivity extends AppCompatActivity {
     private RecyclerView recyclerMensajes;
     private EditText editMensaje;
     private ImageButton btnEnviar, btnEmoji, btnAudio, btnBack;
-    private ImageView imgPreview, imgGrupoPerfil;
+    private ImageView imgPreview;
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private MensajeAdapter mensajeAdapter;
     private List<MensajeModel> listaMensajes;
@@ -56,17 +57,20 @@ public class GrupoActivity extends AppCompatActivity {
     private MediaRecorder mediaRecorder;
     private boolean isRecording = false;
     private String audioFilePath;
+    private boolean permisoToastMostrado = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
+        permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
+                .getBoolean("permiso_audio_mostrado", false);
+
         inicializarComponentes();
         configurarRecyclerMensajes();
         configurarPickImagen();
         configurarGrabacionAudio();
-
         db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         chatId = getIntent().getStringExtra("chatId");
@@ -77,14 +81,10 @@ public class GrupoActivity extends AppCompatActivity {
             finish();
             return;
         }
-
         tvNombreGrupo.setText(!TextUtils.isEmpty(nombreGrupo) ? nombreGrupo : "Chat grupal");
-
         obtenerNombreUsuarioActual();
         verificarChatGrupal();
-        cargarFotoPerfilGrupo(chatId);
         loadMessages();
-
         btnEmoji.setOnClickListener(v -> seleccionarImagen());
         btnEnviar.setOnClickListener(v -> enviarMensaje());
         btnBack.setOnClickListener(v -> onBackPressed());
@@ -99,35 +99,13 @@ public class GrupoActivity extends AppCompatActivity {
         btnEmoji = findViewById(R.id.btnEmoji);
         imgPreview = findViewById(R.id.imgPreview);
         btnBack = findViewById(R.id.btnBack);
-        imgGrupoPerfil = findViewById(R.id.imgPerfilUsuario); // Asegúrate de tener este ID en el XML
     }
-
-    private void cargarFotoPerfilGrupo(String chatId) {
-        db.collection("chats").document(chatId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    String base64 = documentSnapshot.getString("foto_grupo_base64");
-                    if (base64 != null && !base64.isEmpty()) {
-                        try {
-                            byte[] decoded = Base64.decode(base64, Base64.DEFAULT);
-                            Bitmap bitmap = BitmapFactory.decodeStream(new ByteArrayInputStream(decoded));
-                            imgGrupoPerfil.setImageBitmap(bitmap);
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            showToast("Error al cargar imagen del grupo");
-                        }
-                    }
-                })
-                .addOnFailureListener(e -> showToast("No se pudo obtener la imagen"));
-    }
-
     private void configurarRecyclerMensajes() {
         listaMensajes = new ArrayList<>();
         mensajeAdapter = new MensajeAdapter(this, listaMensajes, true);
         recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
         recyclerMensajes.setAdapter(mensajeAdapter);
     }
-
     private void configurarPickImagen() {
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -142,13 +120,11 @@ public class GrupoActivity extends AppCompatActivity {
                 }
         );
     }
-
     private void seleccionarImagen() {
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/*");
         imagePickerLauncher.launch(intent);
     }
-
     private void configurarGrabacionAudio() {
         btnAudio.setOnTouchListener((v, event) -> {
             switch (event.getAction()) {
@@ -172,22 +148,18 @@ public class GrupoActivity extends AppCompatActivity {
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 200);
         }
-
         editMensaje.addTextChangedListener(new TextWatcher() {
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (s.toString().trim().isEmpty()) mostrarBotonAudio();
                 else mostrarBotonEnviar();
             }
-
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             public void afterTextChanged(Editable s) {}
         });
     }
-
     private boolean tienePermisosDeAudio() {
         return ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
-
     private void iniciarGrabacionAudio() {
         try {
             String fileName = "AUDIO_" + System.currentTimeMillis() + ".3gp";
@@ -216,7 +188,7 @@ public class GrupoActivity extends AppCompatActivity {
             mediaRecorder.release();
             mediaRecorder = null;
             isRecording = false;
-            showToast("Grabación finalizada");
+            subirAudioASupabase(new File(audioFilePath));
         } catch (Exception e) {
             showToast("Error al detener grabación");
         }
@@ -230,6 +202,10 @@ public class GrupoActivity extends AppCompatActivity {
     private void mostrarBotonAudio() {
         btnEnviar.setVisibility(View.GONE);
         btnAudio.setVisibility(View.VISIBLE);
+    }
+
+    private void subirAudioASupabase(File audioFile) {
+        showToast("Función para subir audio aún no implementada");
     }
 
     private void obtenerNombreUsuarioActual() {
@@ -263,20 +239,40 @@ public class GrupoActivity extends AppCompatActivity {
 
     private void enviarMensaje() {
         String mensajeTexto = editMensaje.getText().toString().trim();
-        if (mensajeTexto.isEmpty()) {
-            showToast("Escribe un mensaje");
+
+        if (mensajeTexto.isEmpty() && imageUriSeleccionada == null) {
+            showToast("Debes escribir un mensaje o enviar una imagen");
             return;
         }
 
-        Map<String, Object> mensaje = new HashMap<>();
-        mensaje.put("chat_id", chatId);
-        mensaje.put("mensaje", mensajeTexto);
-        mensaje.put("usuario_id", currentUserId);
-        mensaje.put("nombre_usuario", nombreActualUsuario);
-        mensaje.put("fecha_creado", FieldValue.serverTimestamp());
+        if (!mensajeTexto.isEmpty()) {
+            listaMensajes.add(new MensajeModel(mensajeTexto, true, nombreActualUsuario, new Date()));
+            mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
+            recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
+            guardarMensajeEnFirestore(mensajeTexto);
+            editMensaje.setText("");
+        }
 
-        db.collection("notificacion").add(mensaje);
-        editMensaje.setText("");
+        if (imageUriSeleccionada != null) {
+            subirImagenAFirestore(imageUriSeleccionada);
+            imgPreview.setVisibility(ImageView.GONE);
+            imageUriSeleccionada = null;
+        }
+    }
+
+    private void guardarMensajeEnFirestore(String mensajeTexto) {
+        Map<String, Object> mensajeData = new HashMap<>();
+        mensajeData.put("chat_id", chatId);
+        mensajeData.put("mensaje", mensajeTexto);
+        mensajeData.put("usuario_id", currentUserId);
+        mensajeData.put("nombre_usuario", nombreActualUsuario);
+        mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
+
+        db.collection("notificacion").add(mensajeData);
+    }
+
+    private void subirImagenAFirestore(Uri imagenUri) {
+        showToast("Función para subir imágenes aún no implementada");
     }
 
     private void loadMessages() {
@@ -303,7 +299,6 @@ public class GrupoActivity extends AppCompatActivity {
                     recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                 });
     }
-
     private void showToast(String mensaje) {
         Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show();
     }

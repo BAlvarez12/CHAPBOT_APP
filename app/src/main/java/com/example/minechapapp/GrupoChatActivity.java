@@ -85,7 +85,6 @@ public class GrupoChatActivity extends AppCompatActivity {
                         String uid = doc.getId();
                         String nombre = doc.getString("nombre");
                         String email = doc.getString("email");
-
                         listaUsuarios.add(new Usuario(uid, nombre, email));
                     }
                     usuarioAdapter.notifyDataSetChanged();
