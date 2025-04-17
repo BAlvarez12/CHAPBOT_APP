@@ -1,6 +1,8 @@
 package com.example.minechapapp;
 
 import android.app.Activity;
+import android.Manifest;
+import android.os.Build;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -96,6 +98,7 @@ public class chatActivity extends AppCompatActivity {
     private static final String SUPABASE_TOKEN =
             "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
     private static final String SUPABASE_URL   = "https://vlfuswavnjmkucepynxb.supabase.co/";
+    private static final int RC_PICK_IMAGE = 300;
 
 
     @Override
@@ -214,16 +217,28 @@ public class chatActivity extends AppCompatActivity {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            uploadImageToFirebase(imageUri);
+                            prepareAndUploadImage(imageUri);
                         }
                     }
                 }
         );
 
         btnEmoji.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_PICK);
-            intent.setType("image/*");
-            imagePickerLauncher.launch(intent);
+            // 1) elegimos qué permiso pedir según versión Android
+            String permisoGaleria = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                    ? Manifest.permission.READ_MEDIA_IMAGES
+                    : Manifest.permission.READ_EXTERNAL_STORAGE;
+
+            // 2) chequeamos si ya está concedido
+            if (ContextCompat.checkSelfPermission(this, permisoGaleria)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{ permisoGaleria }, RC_PICK_IMAGE);
+            } else {
+                // 3) si ya está, abrimos la galería
+                Intent intent = new Intent(Intent.ACTION_PICK);
+                intent.setType("image/*");
+                imagePickerLauncher.launch(intent);
+            }
         });
 
 
@@ -277,9 +292,20 @@ public class chatActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 200) {
+
+        if (requestCode == RC_PICK_IMAGE) {
+            // Respuesta al permiso de galería
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Solo mostrar el mensaje una vez, y guardarlo en SharedPreferences
+                // Ya tenemos permiso: abrimos la galería
+                Intent intent = new Intent(Intent.ACTION_PICK);
+                intent.setType("image/*");
+                imagePickerLauncher.launch(intent);
+            } else {
+                showToast("Debes aceptar el permiso para acceder a la galería");
+            }
+        } else if (requestCode == 200) {
+            // Tu lógica actual de permiso de audio
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 if (!permisoToastMostrado) {
                     showToast("Permiso concedido, mantén presionado para grabar");
                     permisoToastMostrado = true;
@@ -344,6 +370,56 @@ public class chatActivity extends AppCompatActivity {
             }
         }
     }
+
+    private void prepareAndUploadImage(Uri uri) {
+        // 1) copiar a cache si viene de content://
+        Uri uploadUri = uri;
+        if ("content".equals(uri.getScheme())) {
+            try (InputStream is = getContentResolver().openInputStream(uri)) {
+                File tmp = new File(getCacheDir(), "upload_" + UUID.randomUUID() + ".jpg");
+                try (FileOutputStream fos = new FileOutputStream(tmp)) {
+                    byte[] buf = new byte[8192];
+                    int len;
+                    while ((len = is.read(buf)) > 0) {
+                        fos.write(buf, 0, len);
+                    }
+                }
+                uploadUri = Uri.fromFile(tmp);
+            } catch (IOException e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Error preparando imagen: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
+        // 2) preparar el multipart
+        File file = new File(uploadUri.getPath());
+        RequestBody req = RequestBody.create(MediaType.parse("image/jpeg"), file);
+        String fileName = UUID.randomUUID().toString() + ".jpg";
+        MultipartBody.Part part = MultipartBody.Part.createFormData("file", fileName, req);
+
+        // 3) llamar a Supabase
+        supabase.uploadFile(SUPABASE_TOKEN, fileName, part)
+                .enqueue(new Callback<ResponseBody>() {
+                    @Override public void onResponse(Call<ResponseBody> c, Response<ResponseBody> r) {
+                        if (r.isSuccessful()) {
+                            String imageUrl = SUPABASE_URL
+                                    + "storage/v1/object/public/minechap/" + fileName;
+                            saveImageMessage(imageUrl);
+                        } else {
+                            Toast.makeText(chatActivity.this,
+                                    "Error subiendo imagen: " + r.code(),
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    @Override public void onFailure(Call<ResponseBody> c, Throwable t) {
+                        Toast.makeText(chatActivity.this,
+                                "Fallo al conectar con Supabase: " + t.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
 
     private void mostrarBotonEnviar() {
         if (btnEnviar.getVisibility() != View.VISIBLE) {
