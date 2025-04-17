@@ -3,6 +3,7 @@ package com.example.minechapapp;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
@@ -17,45 +18,30 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.RequestBody;
-import okhttp3.ResponseBody;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
-import android.media.MediaPlayer;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+
+import okhttp3.MediaType;
 import okhttp3.MultipartBody;
-import retrofit2.http.Header;
-import retrofit2.http.Multipart;
-import retrofit2.http.POST;
-import retrofit2.http.Part;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
+import retrofit2.*;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class GrupoActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
@@ -73,20 +59,17 @@ public class GrupoActivity extends AppCompatActivity {
     private MediaRecorder mediaRecorder;
     private boolean isRecording = false;
     private String audioFilePath;
-    private boolean permisoToastMostrado = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
-                .getBoolean("permiso_audio_mostrado", false);
-
         inicializarComponentes();
         configurarRecyclerMensajes();
         configurarPickImagen();
         configurarGrabacionAudio();
+
         db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         chatId = getIntent().getStringExtra("chatId");
@@ -97,13 +80,40 @@ public class GrupoActivity extends AppCompatActivity {
             finish();
             return;
         }
+
         tvNombreGrupo.setText(!TextUtils.isEmpty(nombreGrupo) ? nombreGrupo : "Chat grupal");
-        obtenerNombreUsuarioActual();
-        verificarChatGrupal();
-        loadMessages();
+
+        db.collection("chats").document(chatId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        List<String> eliminados = (List<String>) documentSnapshot.get("eliminado_por");
+                        if (eliminados != null && eliminados.contains(currentUserId)) {
+                            db.collection("chats").document(chatId)
+                                    .update("eliminado_por", FieldValue.arrayRemove(currentUserId))
+                                    .addOnSuccessListener(aVoid -> continuarCargaDelChat())
+                                    .addOnFailureListener(e -> continuarCargaDelChat());
+                        } else {
+                            continuarCargaDelChat();
+                        }
+                    } else {
+                        continuarCargaDelChat();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    showToast("Error al verificar chat eliminado");
+                    continuarCargaDelChat();
+                });
+
         btnEmoji.setOnClickListener(v -> seleccionarImagen());
         btnEnviar.setOnClickListener(v -> enviarMensaje());
         btnBack.setOnClickListener(v -> onBackPressed());
+    }
+
+    private void continuarCargaDelChat() {
+        obtenerNombreUsuarioActual();
+        verificarChatGrupal();
+        loadMessages();
     }
 
     private void inicializarComponentes() {
@@ -130,17 +140,19 @@ public class GrupoActivity extends AppCompatActivity {
                         imageUriSeleccionada = result.getData().getData();
                         if (imageUriSeleccionada != null) {
                             imgPreview.setImageURI(imageUriSeleccionada);
-                            imgPreview.setVisibility(ImageView.VISIBLE);
+                            imgPreview.setVisibility(View.VISIBLE);
                         }
                     }
                 }
         );
     }
+
     private void seleccionarImagen() {
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/*");
         imagePickerLauncher.launch(intent);
     }
+
     private void configurarGrabacionAudio() {
         btnAudio.setOnTouchListener((v, event) -> {
             switch (event.getAction()) {
@@ -164,18 +176,23 @@ public class GrupoActivity extends AppCompatActivity {
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 200);
         }
+
         editMensaje.addTextChangedListener(new TextWatcher() {
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (s.toString().trim().isEmpty()) mostrarBotonAudio();
                 else mostrarBotonEnviar();
             }
+
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
             public void afterTextChanged(Editable s) {}
         });
     }
+
     private boolean tienePermisosDeAudio() {
         return ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
+
     private void iniciarGrabacionAudio() {
         try {
             String fileName = "AUDIO_" + System.currentTimeMillis() + ".3gp";
@@ -245,13 +262,11 @@ public class GrupoActivity extends AppCompatActivity {
         mensajeData.put("duracion", duracion);
         mensajeData.put("usuario_id", currentUserId);
         mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
-
         db.collection("notificacion").add(mensajeData)
                 .addOnSuccessListener(documentReference -> {
                     Map<String, Object> updateChat = new HashMap<>();
                     updateChat.put("ultimo_mensaje", "🎤 Audio");
                     updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
-
                     db.collection("chats").document(chatId).update(updateChat);
                 })
                 .addOnFailureListener(e -> showToast("Error al guardar audio"));
@@ -263,9 +278,7 @@ public class GrupoActivity extends AppCompatActivity {
                 .baseUrl(supabaseUrl)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
-
         SupabaseService service = retrofit.create(SupabaseService.class);
-
         RequestBody requestBody = RequestBody.create(MediaType.parse("audio/3gp"), audioFile);
         MultipartBody.Part part = MultipartBody.Part.createFormData("file", audioFile.getName(), requestBody);
 
@@ -277,6 +290,10 @@ public class GrupoActivity extends AppCompatActivity {
                     String audioUrl = supabaseUrl + "/storage/v1/object/public/minechap/" + audioFile.getName();
                     long duracion = getDuracionAudio(audioFile.getAbsolutePath());
                     String duracionTexto = convertirDuracion(duracion);
+                    listaMensajes.add(new MensajeModel(audioUrl, duracionTexto, true, new Date()));
+                    mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
+                    recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
+
                     guardarMensajeAudio(audioUrl, duracionTexto);
                 } else {
                     showToast("Error al subir audio: " + response.code());
@@ -297,7 +314,9 @@ public class GrupoActivity extends AppCompatActivity {
                 .addOnSuccessListener(documentSnapshot -> {
                     nombreActualUsuario = documentSnapshot.getString("nombre");
                     if (TextUtils.isEmpty(nombreActualUsuario)) nombreActualUsuario = "Tú";
-                })
+                    enviarMensajeInicialSiEsNecesario();
+
+    })
                 .addOnFailureListener(e -> {
                     nombreActualUsuario = "Tú";
                     showToast("Error al obtener el nombre de usuario");
@@ -326,6 +345,7 @@ public class GrupoActivity extends AppCompatActivity {
             showToast("Debes escribir un mensaje o enviar una imagen");
             return;
         }
+
         if (!mensajeTexto.isEmpty()) {
             listaMensajes.add(new MensajeModel(mensajeTexto, true, nombreActualUsuario, new Date()));
             mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
@@ -333,12 +353,14 @@ public class GrupoActivity extends AppCompatActivity {
             guardarMensajeEnFirestore(mensajeTexto);
             editMensaje.setText("");
         }
+
         if (imageUriSeleccionada != null) {
             subirImagenAFirestore(imageUriSeleccionada);
-            imgPreview.setVisibility(ImageView.GONE);
+            imgPreview.setVisibility(View.GONE);
             imageUriSeleccionada = null;
         }
     }
+
     private void guardarMensajeEnFirestore(String mensajeTexto) {
         Map<String, Object> mensajeData = new HashMap<>();
         mensajeData.put("chat_id", chatId);
@@ -349,9 +371,11 @@ public class GrupoActivity extends AppCompatActivity {
 
         db.collection("notificacion").add(mensajeData);
     }
+
     private void subirImagenAFirestore(Uri imagenUri) {
         showToast("Función para subir imágenes aún no implementada");
     }
+
     private void loadMessages() {
         db.collection("notificacion")
                 .whereEqualTo("chat_id", chatId)
@@ -370,6 +394,7 @@ public class GrupoActivity extends AppCompatActivity {
                         boolean esEnviado = usuarioId != null && usuarioId.equals(currentUserId);
                         String audioUrl = doc.getString("audio_url");
                         String duracion = doc.getString("duracion");
+
                         if (audioUrl != null && duracion != null) {
                             listaMensajes.add(new MensajeModel(audioUrl, duracion, esEnviado, fecha));
                         } else {
@@ -377,10 +402,41 @@ public class GrupoActivity extends AppCompatActivity {
                             listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha));
                         }
                     }
+                    mensajeAdapter.notifyDataSetChanged();
+                    recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                 });
     }
+
+    private void enviarMensajeInicialSiEsNecesario() {
+        db.collection("notificacion")
+                .whereEqualTo("chat_id", chatId)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        String mensaje = "Grupo creado por " + nombreActualUsuario;
+                        Map<String, Object> mensajeData = new HashMap<>();
+                        mensajeData.put("chat_id", chatId);
+                        mensajeData.put("mensaje", mensaje);
+                        mensajeData.put("usuario_id", currentUserId);
+                        mensajeData.put("nombre_usuario", nombreActualUsuario);
+                        mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
+                        db.collection("notificacion").add(mensajeData)
+                                .addOnSuccessListener(documentReference -> {
+                                    Map<String, Object> updateChat = new HashMap<>();
+                                    updateChat.put("ultimo_mensaje", mensaje);
+                                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+                                    db.collection("chats").document(chatId)
+                                            .update(updateChat)
+                                            .addOnSuccessListener(aVoid -> {
+                                                loadMessages();
+                                            });
+                                });
+                    }
+                });
+    }
+
     private void showToast(String mensaje) {
         Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show();
     }
-
 }

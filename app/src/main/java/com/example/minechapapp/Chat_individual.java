@@ -25,8 +25,6 @@ public class Chat_individual {
         this.esGrupal = false;
         this.tipoChat = "NCm3QCIsKw8MjjHycvm5";
     }
-
-    // Chat grupal
     public Chat_individual(String chatId, String nombre, String ultimoMensaje, String hora) {
         this.chatId = chatId;
         this.otherUserId = "";
@@ -36,8 +34,6 @@ public class Chat_individual {
         this.esGrupal = true;
         this.tipoChat = "97XeeFNzro7xurmKwKeh";
     }
-
-    // Con todos los campos
     public Chat_individual(String chatId, String otherUserId, String nombre, String ultimoMensaje, String hora, boolean esGrupal, String tipoChat) {
         this.chatId = chatId;
         this.otherUserId = otherUserId;
@@ -47,9 +43,6 @@ public class Chat_individual {
         this.esGrupal = esGrupal;
         this.tipoChat = tipoChat;
     }
-
-    // ✅ GETTERS Y SETTERS
-
     public String getChatId() {
         return chatId;
     }
@@ -106,7 +99,6 @@ public class Chat_individual {
         this.tipoChat = tipoChat;
     }
 
-    // ✅ GET y SET para el TIMESTAMP
     public Date getTimestamp() {
         return timestamp;
     }

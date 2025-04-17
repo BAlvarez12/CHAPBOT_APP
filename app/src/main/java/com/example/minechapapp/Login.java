@@ -107,7 +107,6 @@ public class Login extends AppCompatActivity {
                             mAuth.signOut();
                             Toast.makeText(this, "Usuario no registrado en Firestore", Toast.LENGTH_SHORT).show();
                         }
-
                     } else {
                         Toast.makeText(this, "Error al consultar Firestore: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
                     }
