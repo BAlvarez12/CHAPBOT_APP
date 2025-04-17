@@ -11,7 +11,7 @@ import retrofit2.http.Path;
 public interface SupabaseService {
     @Multipart
     @PUT("storage/v1/object/minechap/{fileName}")
-    Call<ResponseBody> uploadAudio(
+    Call<ResponseBody> uploadFile(
             @Header("Authorization") String bearerToken,
             @Path("fileName") String fileName,
             @Part MultipartBody.Part file

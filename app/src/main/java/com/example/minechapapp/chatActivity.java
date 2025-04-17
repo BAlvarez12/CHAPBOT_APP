@@ -14,6 +14,7 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Base64;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
@@ -59,6 +60,9 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import com.google.firebase.firestore.ListenerRegistration;
+import java.util.UUID;
+import java.io.InputStream;
+import java.io.FileOutputStream;
 
 
 import okhttp3.MultipartBody;
@@ -85,7 +89,13 @@ public class chatActivity extends AppCompatActivity {
     private ImageButton btnBack;
     private String currentUserId, receiverId, usuarioA, usuarioB, chatId;
     private ListenerRegistration mensajesListener;
+    private String nombreActualUsuario;
     private boolean permisoToastMostrado = false;
+
+    private SupabaseService supabase;
+    private static final String SUPABASE_TOKEN =
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
+    private static final String SUPABASE_URL   = "https://vlfuswavnjmkucepynxb.supabase.co/";
 
 
 
@@ -93,6 +103,11 @@ public class chatActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+        supabase = new Retrofit.Builder()
+                .baseUrl(SUPABASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+                .create(SupabaseService.class);;
 
 
         permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
@@ -104,6 +119,7 @@ public class chatActivity extends AppCompatActivity {
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         receiverId = getIntent().getStringExtra("USER_ID");
         String nombreUsuario = getIntent().getStringExtra("nombreUsuario");
+        nombreActualUsuario = nombreUsuario;
 
         if (TextUtils.isEmpty(receiverId)) {
             showToast("Error: receiverId no proporcionado");
@@ -173,8 +189,7 @@ public class chatActivity extends AppCompatActivity {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            imgPreview.setImageURI(imageUri);
-                            imgPreview.setVisibility(View.VISIBLE);
+                            uploadImageToFirebase(imageUri);
                         }
                     }
                 }
@@ -452,18 +467,26 @@ public class chatActivity extends AppCompatActivity {
                         for (DocumentSnapshot doc : snapshots.getDocuments()) {
                             String usuarioId = doc.getString("usuario_id");
                             Date fecha = doc.getDate("fecha_creado");
-
                             if (usuarioId == null) continue;
                             boolean esEnviado = usuarioId.equals(currentUserId);
 
-                            String audioUrl = doc.getString("audio_url");
-                            String duracion = doc.getString("duracion");
-
-                            if (audioUrl != null && duracion != null) {
-                                listaMensajes.add(new MensajeModel(audioUrl, duracion, esEnviado, fecha));
-                            } else {
-                                String mensaje = doc.getString("mensaje");
-                                listaMensajes.add(new MensajeModel(mensaje, esEnviado, fecha));
+                            String tipo = doc.getString("tipo");            // “text”, “image” o “audio”
+                            if ("image".equals(tipo)) {
+                                // Mensaje de imagen
+                                String imageUrl = doc.getString("image_url");
+                                listaMensajes.add(new MensajeModel(imageUrl, esEnviado, true, fecha));
+                            }
+                            else {
+                                String audioUrl = doc.getString("audio_url");
+                                String duracion = doc.getString("duracion");
+                                if (audioUrl != null && duracion != null) {
+                                    // Mensaje de audio
+                                    listaMensajes.add(new MensajeModel(audioUrl, duracion, esEnviado, fecha));
+                                } else {
+                                    // Mensaje de texto
+                                    String mensaje = doc.getString("mensaje");
+                                    listaMensajes.add(new MensajeModel(mensaje, esEnviado, fecha));
+                                }
                             }
                         }
                         mensajeAdapter.notifyDataSetChanged();
@@ -474,6 +497,96 @@ public class chatActivity extends AppCompatActivity {
                 });
     }
 
+    private void uploadImageToFirebase(Uri uri) {
+        if (chatId == null || chatId.isEmpty()) {
+            Toast.makeText(this, "ID del chat inválido", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Determinamos el URI final a subir
+        Uri uploadUri = uri;
+        if ("com.google.android.apps.photos.contentprovider".equals(uri.getAuthority())) {
+            // Copiamos a un archivo temporal
+            try {
+                InputStream is = getContentResolver().openInputStream(uri);
+                File cacheFile = new File(getCacheDir(), "upload_" + UUID.randomUUID() + ".jpg");
+                FileOutputStream fos = new FileOutputStream(cacheFile);
+                byte[] buf = new byte[8192];
+                int len;
+                while ((len = is.read(buf)) > 0) {
+                    fos.write(buf, 0, len);
+                }
+                is.close();
+                fos.close();
+                uploadUri = Uri.fromFile(cacheFile);
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Error preparando imagen: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
+        // Llamamos al método que hace la subida real
+        performImageUpload(uploadUri);
+    }
+
+    private void saveImageMessage(String imageUrl) {
+        // Creamos el modelo para el adaptador (opcional si no lo usas aquí)
+        MensajeModel mensaje = new MensajeModel(imageUrl, true, true, new Date());
+
+        // Preparamos los datos para Firestore
+        Map<String, Object> data = new HashMap<>();
+        data.put("chat_id", chatId);
+        data.put("tipo", "image");
+        data.put("image_url", imageUrl);
+        data.put("usuario_id", currentUserId);
+        data.put("nombre_usuario", nombreActualUsuario);
+        data.put("fecha_creado", FieldValue.serverTimestamp());
+
+        // Lo guardamos en la colección "notificacion"
+        db.collection("notificacion")
+                .add(data)
+                .addOnSuccessListener(docRef -> {
+                    // (Opcional) Actualizar último mensaje en chats
+                    Map<String, Object> update = new HashMap<>();
+                    update.put("ultimo_mensaje", "[Imagen]");
+                    update.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+                    db.collection("chats").document(chatId).update(update);
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Error guardando mensaje de imagen", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void performImageUpload(Uri uploadUri) {
+        File file = new File(uploadUri.getPath());
+        RequestBody req = RequestBody.create(MediaType.parse("image/jpeg"), file);
+        String fileName = UUID.randomUUID().toString() + ".jpg";
+        MultipartBody.Part part = MultipartBody.Part.createFormData("file", fileName, req);
+
+        supabase.uploadFile(SUPABASE_TOKEN, fileName, part)
+                .enqueue(new Callback<ResponseBody>() {
+                    @Override
+                    public void onResponse(Call<ResponseBody> c, Response<ResponseBody> r) {
+                        if (r.isSuccessful()) {
+                            String imageUrl = SUPABASE_URL
+                                    + "storage/v1/object/public/minechap/"
+                                    + fileName;
+                            saveImageMessage(imageUrl);
+                        } else {
+                            Toast.makeText(chatActivity.this,
+                                    "Error subiendo imagen: " + r.code(),
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    @Override
+                    public void onFailure(Call<ResponseBody> c, Throwable t) {
+                        Toast.makeText(chatActivity.this,
+                                "Fallo al conectar con Supabase: " + t.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
     private long getDuracionAudio(String filePath) {
         try {
             MediaPlayer player = new MediaPlayer();
@@ -503,7 +616,7 @@ public class chatActivity extends AppCompatActivity {
         SupabaseService service = retrofit.create(SupabaseService.class);
         RequestBody requestBody = RequestBody.create(MediaType.parse("audio/3gp"), audioFile);
         MultipartBody.Part part = MultipartBody.Part.createFormData("file", audioFile.getName(), requestBody);
-        Call<ResponseBody> call = service.uploadAudio(supabaseBearerToken, audioFile.getName(), part);
+        Call<ResponseBody> call = service.uploadFile(supabaseBearerToken, audioFile.getName(), part);
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
@@ -524,6 +637,8 @@ public class chatActivity extends AppCompatActivity {
             }
         });
     }
+
+
     private void loadLastMessageStatus() {
         db.collection("notificacion")
                 .whereEqualTo("chat_id", chatId)

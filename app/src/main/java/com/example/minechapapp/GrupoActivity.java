@@ -269,7 +269,7 @@ public class GrupoActivity extends AppCompatActivity {
         RequestBody requestBody = RequestBody.create(MediaType.parse("audio/3gp"), audioFile);
         MultipartBody.Part part = MultipartBody.Part.createFormData("file", audioFile.getName(), requestBody);
 
-        Call<ResponseBody> call = service.uploadAudio(supabaseBearerToken, audioFile.getName(), part);
+        Call<ResponseBody> call = service.uploadFile(supabaseBearerToken, audioFile.getName(), part);
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
