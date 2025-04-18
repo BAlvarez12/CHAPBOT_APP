@@ -289,11 +289,9 @@ public class GrupoActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {}
         });
     }
-
     private boolean tienePermisosDeAudio() {
         return ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
-
     private void iniciarGrabacionAudio() {
         try {
             String fileName = "AUDIO_" + System.currentTimeMillis() + ".3gp";
@@ -348,13 +346,14 @@ public class GrupoActivity extends AppCompatActivity {
                 .addOnSuccessListener(documentSnapshot -> {
                     nombreActualUsuario = documentSnapshot.getString("nombre");
                     if (TextUtils.isEmpty(nombreActualUsuario)) nombreActualUsuario = "Tú";
+                    enviarMensajeInicialSiEsNecesario();
                 })
+
                 .addOnFailureListener(e -> {
                     nombreActualUsuario = "Tú";
                     showToast("Error al obtener el nombre de usuario");
                 });
     }
-
     private void verificarChatGrupal() {
         db.collection("chats").document(chatId)
                 .get()
@@ -370,30 +369,22 @@ public class GrupoActivity extends AppCompatActivity {
                     finish();
                 });
     }
-
     private void enviarMensaje() {
         String mensajeTexto = editMensaje.getText().toString().trim();
-
-        // — Si hay imagen seleccionada, enviamos SÓLO la imagen y salimos
         if (imageUriSeleccionada != null) {
             subirImagenASupabase(imageUriSeleccionada);
-            return;   // importante: salimos antes de procesar texto
+            return;
         }
-
-        // — Si no hay texto tampoco, avisamos
         if (mensajeTexto.isEmpty()) {
             showToast("Debes escribir un mensaje o enviar una imagen");
             return;
         }
-
-        // — Si llegamos aquí, es un mensaje de texto puro
         listaMensajes.add(new MensajeModel(mensajeTexto, true, nombreActualUsuario, new Date()));
         mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
         recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
         guardarMensajeEnFirestore(mensajeTexto);
         editMensaje.setText("");
     }
-
     private void guardarMensajeEnFirestore(String mensajeTexto) {
         Map<String, Object> mensajeData = new HashMap<>();
         mensajeData.put("chat_id", chatId);
@@ -404,13 +395,9 @@ public class GrupoActivity extends AppCompatActivity {
 
         db.collection("notificacion").add(mensajeData);
     }
-
     private void subirImagenASupabase(Uri imagenUri) {
         try {
-            // 1) Preparamos nombre de archivo
             String fileName = "IMG_" + System.currentTimeMillis() + ".jpg";
-
-            // 2) Convertimos el URI a RequestBody
             InputStream inputStream = getContentResolver().openInputStream(imagenUri);
             byte[] bytes = new byte[inputStream.available()];
             inputStream.read(bytes);
@@ -420,19 +407,15 @@ public class GrupoActivity extends AppCompatActivity {
                     RequestBody.create(bytes, okhttp3.MediaType.parse("image/jpeg"));
             MultipartBody.Part body =
                     MultipartBody.Part.createFormData("file", fileName, requestFile);
-
-            // 3) Llamamos a SupabaseService
             SupabaseService service = RetrofitClient
                     .getInstance()
                     .create(SupabaseService.class);
-            // Reemplaza YOUR_SUPABASE_KEY por tu token real
             Call<ResponseBody> call = service.uploadFile(
                     SUPABASE_TOKEN,
                     fileName,
                     body
             );
 
-            // 4) Ejecutamos la llamada
             call.enqueue(new Callback<ResponseBody>() {
                 @Override
                 public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
@@ -523,5 +506,34 @@ public class GrupoActivity extends AppCompatActivity {
 
     private void showToast(String mensaje) {
         Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show();
+    }
+
+    private void enviarMensajeInicialSiEsNecesario() {
+        db.collection("notificacion")
+                .whereEqualTo("chat_id", chatId)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        String mensaje = "Grupo creado por " + nombreActualUsuario;
+                        Map<String, Object> mensajeData = new HashMap<>();
+                        mensajeData.put("chat_id", chatId);
+                        mensajeData.put("mensaje", mensaje);
+                        mensajeData.put("usuario_id", currentUserId);
+                        mensajeData.put("nombre_usuario", nombreActualUsuario);
+                        mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
+                        db.collection("notificacion").add(mensajeData)
+                                .addOnSuccessListener(documentReference -> {
+                                    Map<String, Object> updateChat = new HashMap<>();
+                                    updateChat.put("ultimo_mensaje", mensaje);
+                                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+                                    db.collection("chats").document(chatId)
+                                            .update(updateChat)
+                                            .addOnSuccessListener(aVoid -> {
+                                                loadMessages();
+                                            });
+                                });
+                    }
+                });
     }
 }
