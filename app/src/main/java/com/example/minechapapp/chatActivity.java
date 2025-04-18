@@ -28,6 +28,8 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.example.minechapapp.helpers.ControladorNotificaciones;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -98,18 +100,24 @@ public class chatActivity extends AppCompatActivity {
     private AudioGrabacion audioGrabacion;
     private ImagenChats imagenChats;
 
-
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        500);
+            }
+        }
+
         supabase = new Retrofit.Builder()
                 .baseUrl(SUPABASE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
-                .create(SupabaseService.class);;
+                .create(SupabaseService.class);
 
         permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
                 .getBoolean("permiso_audio_mostrado", false);
@@ -129,8 +137,6 @@ public class chatActivity extends AppCompatActivity {
         }
 
         tvNombreUsuario.setText(!TextUtils.isEmpty(nombreUsuario) ? nombreUsuario : "Chat");
-
-        // Cargar foto de perfil desde Base64
         cargarFotoPerfil(receiverId);
 
         if (currentUserId.compareTo(receiverId) < 0) {
@@ -145,7 +151,6 @@ public class chatActivity extends AppCompatActivity {
         audioGrabacion = new AudioGrabacion(this, chatId, currentUserId, nombreActualUsuario);
         imagenChats = new ImagenChats(this, chatId, currentUserId, nombreActualUsuario);
 
-        // Remover UID de eliminado_por si está presente
         db.collection("chats").document(chatId)
                 .get()
                 .addOnSuccessListener(doc -> {
@@ -155,7 +160,6 @@ public class chatActivity extends AppCompatActivity {
                             db.collection("chats").document(chatId)
                                     .update("eliminado_por", FieldValue.arrayRemove(currentUserId))
                                     .addOnSuccessListener(aVoid -> {
-                                        // Cargamos mensajes después de restaurar chat
                                         loadMessages();
                                         loadLastMessageStatus();
                                     });
@@ -175,6 +179,7 @@ public class chatActivity extends AppCompatActivity {
                 });
 
         Animation clickAnimation = AnimationUtils.loadAnimation(this, R.anim.click);
+
         btnAudio.setOnTouchListener((v, event) -> {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
@@ -226,24 +231,19 @@ public class chatActivity extends AppCompatActivity {
         );
 
         btnEmoji.setOnClickListener(v -> {
-            // 1) elegimos qué permiso pedir según versión Android
             String permisoGaleria = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                     ? Manifest.permission.READ_MEDIA_IMAGES
                     : Manifest.permission.READ_EXTERNAL_STORAGE;
 
-            // 2) chequeamos si ya está concedido
             if (ContextCompat.checkSelfPermission(this, permisoGaleria)
                     != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{ permisoGaleria }, RC_PICK_IMAGE);
+                requestPermissions(new String[]{permisoGaleria}, RC_PICK_IMAGE);
             } else {
-                // 3) si ya está, abrimos la galería
                 Intent intent = new Intent(Intent.ACTION_PICK);
                 intent.setType("image/*");
                 imagePickerLauncher.launch(intent);
             }
         });
-
-
 
         editMensaje.addTextChangedListener(new TextWatcher() {
             @Override
@@ -262,7 +262,6 @@ public class chatActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {}
         });
     }
-
     private void cargarFotoPerfil(String userId) {
         db.collection("usuarios").document(userId)
                 .get()
@@ -273,12 +272,8 @@ public class chatActivity extends AppCompatActivity {
                             try {
                                 byte[] decodedString = Base64.decode(fotoBase64, Base64.DEFAULT);
                                 Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-
-                                // Aplicar el fondo redondo
                                 imgPerfilUsuario.setBackgroundResource(R.drawable.imagen_redonda);
                                 imgPerfilUsuario.setImageBitmap(decodedByte);
-
-                                // Esto es importante para que se vea redondo
                                 imgPerfilUsuario.setClipToOutline(true);
                             } catch (Exception e) {
                                 showToast("Error al procesar la imagen");
@@ -294,11 +289,8 @@ public class chatActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
         if (requestCode == RC_PICK_IMAGE) {
-            // Respuesta al permiso de galería
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Ya tenemos permiso: abrimos la galería
                 Intent intent = new Intent(Intent.ACTION_PICK);
                 intent.setType("image/*");
                 imagePickerLauncher.launch(intent);
@@ -405,13 +397,28 @@ public class chatActivity extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (!documentSnapshot.exists()) {
-                        crearChatIndividual(() -> guardarMensajeEnNotificacion(mensajeTexto));
+                        crearChatIndividual(() -> ControladorNotificaciones.enviarMensaje(
+                                chatActivity.this,
+                                chatId,
+                                mensajeTexto,
+                                currentUserId,
+                                receiverId,
+                                nombreActualUsuario
+                        ));
                     } else {
-                        guardarMensajeEnNotificacion(mensajeTexto);
+                        ControladorNotificaciones.enviarMensaje(
+                                chatActivity.this,
+                                chatId,
+                                mensajeTexto,
+                                currentUserId,
+                                receiverId,
+                                nombreActualUsuario
+                        );
                     }
                 })
                 .addOnFailureListener(e -> showToast("Error al consultar el chat"));
     }
+
     private void crearChatIndividual(Runnable callback) {
         Map<String, Object> chatData = new HashMap<>();
         chatData.put("tipo_chat", TIPO_CHAT_INDIVIDUAL_ID);
@@ -422,24 +429,6 @@ public class chatActivity extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> callback.run())
                 .addOnFailureListener(e -> showToast("Error al crear el chat individual"));
     }
-    private void guardarMensajeEnNotificacion(String mensajeTexto) {
-        Map<String, Object> messageData = new HashMap<>();
-        messageData.put("chat_id", chatId);
-        messageData.put("mensaje", mensajeTexto);
-        messageData.put("usuario_id", currentUserId);
-        messageData.put("fecha_creado", FieldValue.serverTimestamp());
-
-        db.collection("notificacion").add(messageData)
-                .addOnSuccessListener(documentReference -> {
-                    Map<String, Object> updateChat = new HashMap<>();
-                    updateChat.put("ultimo_mensaje", mensajeTexto);
-                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
-
-                    db.collection("chats").document(chatId).update(updateChat);
-                })
-                .addOnFailureListener(e -> showToast("Error al enviar el mensaje"));
-    }
-
     private void loadMessages() {
         mensajesListener = db.collection("notificacion")
                 .whereEqualTo("chat_id", chatId)
