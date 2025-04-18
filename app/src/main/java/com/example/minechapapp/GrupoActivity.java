@@ -1,12 +1,14 @@
 package com.example.minechapapp;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaRecorder;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.Editable;
@@ -18,6 +20,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -37,28 +40,35 @@ import com.google.firebase.firestore.Query;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.*;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-import android.Manifest;
-import android.os.Build;
 
 public class GrupoActivity extends AppCompatActivity {
-    private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
 
-    private static final String SUPABASE_URL   = "https://vlfuswavnjmkucepynxb.supabase.co";
-    private static final String SUPABASE_TOKEN =
-            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
+    private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
+    private static final String SUPABASE_URL = "https://vlfuswavnjmkucepynxb.supabase.co";
+    private static final String SUPABASE_TOKEN = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."; // tu token
+
+    private static final int REQUEST_CONFIG_GRUPO = 101;
+
+
     private TextView tvNombreGrupo;
     private ImageView imgPerfilUsuario;
     private RecyclerView recyclerMensajes;
     private EditText editMensaje;
-    private ImageButton btnEnviar, btnEmoji, btnAudio, btnBack;
+    private ImageButton btnEnviar, btnEmoji, btnAudio, btnBack, btnOpciones;
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private MensajeAdapter mensajeAdapter;
     private List<MensajeModel> listaMensajes;
@@ -68,20 +78,17 @@ public class GrupoActivity extends AppCompatActivity {
     private MediaRecorder mediaRecorder;
     private boolean isRecording = false;
     private String audioFilePath;
-    private boolean permisoToastMostrado = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
-                .getBoolean("permiso_audio_mostrado", false);
-
         inicializarComponentes();
         configurarRecyclerMensajes();
         configurarPickImagen();
         configurarGrabacionAudio();
+        configurarMenuOpciones();
 
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -95,15 +102,14 @@ public class GrupoActivity extends AppCompatActivity {
                 }
         );
 
-// — 2) Al pulsar el botón “+” abrimos la galería con permisos
         btnEmoji.setOnClickListener(v -> {
             String permiso = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-                    ? Manifest.permission.READ_MEDIA_IMAGES
-                    : Manifest.permission.READ_EXTERNAL_STORAGE;
+                    ? android.Manifest.permission.READ_MEDIA_IMAGES
+                    : android.Manifest.permission.READ_EXTERNAL_STORAGE;
 
             if (ContextCompat.checkSelfPermission(this, permiso)
                     != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{ permiso }, 300);
+                requestPermissions(new String[]{permiso}, 300);
             } else {
                 Intent intent = new Intent(Intent.ACTION_PICK);
                 intent.setType("image/*");
@@ -123,29 +129,130 @@ public class GrupoActivity extends AppCompatActivity {
         }
 
         tvNombreGrupo.setText(!TextUtils.isEmpty(nombreGrupo) ? nombreGrupo : "Chat grupal");
-
         obtenerNombreUsuarioActual();
         verificarChatGrupal();
-        cargarFotoPerfilGrupo(); // NUEVO
+        cargarFotoPerfilGrupo();
         loadMessages();
 
         btnEnviar.setOnClickListener(v -> enviarMensaje());
         btnBack.setOnClickListener(v -> onBackPressed());
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 101 && resultCode == RESULT_OK && data != null) {
+            String nuevoNombre = data.getStringExtra("nuevo_nombre");
+            if (nuevoNombre != null && !nuevoNombre.isEmpty()) {
+                tvNombreGrupo.setText(nuevoNombre);
+            }
+        }
+    }
+
+
     private void inicializarComponentes() {
         tvNombreGrupo = findViewById(R.id.tvNombreUsuario);
-        imgPerfilUsuario = findViewById(R.id.imgPerfilUsuario); // NUEVO
+        imgPerfilUsuario = findViewById(R.id.imgPerfilUsuario);
         recyclerMensajes = findViewById(R.id.recyclerMensajes);
         editMensaje = findViewById(R.id.editMensaje);
         btnEnviar = findViewById(R.id.btnEnviar);
         btnAudio = findViewById(R.id.btnAudio);
         btnEmoji = findViewById(R.id.btnEmoji);
         btnBack = findViewById(R.id.btnBack);
+        btnOpciones = findViewById(R.id.btnOpciones);
+    }
+
+    private void configurarMenuOpciones() {
+        btnOpciones.setOnClickListener(v -> {
+            PopupMenu popup = new PopupMenu(GrupoActivity.this, btnOpciones);
+            popup.getMenuInflater().inflate(R.menu.menu_chat_grupo, popup.getMenu());
+
+            popup.setOnMenuItemClickListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.opcion_configurar_chat) {
+                    abrirConfiguracionChat();
+                    return true;
+                } else if (id == R.id.opcion_salir_grupo) {
+                    confirmarSalidaGrupo();
+                    return true;
+                }
+                return false;
+            });
+            popup.show();
+        });
+    }
+
+    private void abrirConfiguracionChat() {
+        Intent intent = new Intent(GrupoActivity.this, ConfigGrupoActivity.class);
+        intent.putExtra("chatId", chatId);
+        startActivityForResult(intent, REQUEST_CONFIG_GRUPO);
+    }
+
+
+
+    private void confirmarSalidaGrupo() {
+        new AlertDialog.Builder(this)
+                .setTitle("Salir del grupo")
+                .setMessage("¿Estás seguro de que quieres salir de este grupo?")
+                .setPositiveButton("Sí", (dialog, which) -> salirDelGrupo())
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void salirDelGrupo() {
+        db.collection("chats").document(chatId)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    List<String> participantes = (List<String>) snapshot.get("participantes");
+                    if (participantes != null && participantes.contains(currentUserId)) {
+                        // Crear una nueva lista para evitar modificar la original directamente
+                        List<String> nuevosParticipantes = new ArrayList<>(participantes);
+                        nuevosParticipantes.remove(currentUserId);
+
+                        // 1. Actualizar la lista de participantes
+                        db.collection("chats").document(chatId)
+                                .update("participantes", nuevosParticipantes)
+                                .addOnSuccessListener(unused -> {
+                                    // 2. Enviar mensaje de notificación al grupo
+                                    String mensaje = nombreActualUsuario + " ha salido del grupo";
+                                    Map<String, Object> mensajeData = new HashMap<>();
+                                    mensajeData.put("chat_id", chatId);
+                                    mensajeData.put("mensaje", mensaje);
+                                    mensajeData.put("usuario_id", currentUserId);
+                                    mensajeData.put("nombre_usuario", nombreActualUsuario);
+                                    mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
+                                    mensajeData.put("tipo", "system"); // Tipo especial para mensajes del sistema
+
+                                    db.collection("notificacion")
+                                            .add(mensajeData)
+                                            .addOnSuccessListener(doc -> {
+                                                // 3. Actualizar último mensaje en el chat
+                                                Map<String, Object> updateData = new HashMap<>();
+                                                updateData.put("ultimo_mensaje", mensaje);
+                                                updateData.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+
+                                                db.collection("chats").document(chatId)
+                                                        .update(updateData)
+                                                        .addOnSuccessListener(aVoid -> {
+                                                            Toast.makeText(GrupoActivity.this, "Has salido del grupo", Toast.LENGTH_SHORT).show();
+                                                            finish();
+                                                        });
+                                            });
+                                })
+                                .addOnFailureListener(e -> {
+                                    showToast("Error al salir del grupo: " + e.getMessage());
+                                });
+                    } else {
+                        showToast("No eres participante de este grupo");
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    showToast("Error al verificar participantes: " + e.getMessage());
+                });
     }
 
     private void prepareAndUploadImage(Uri uri) {
-        // 1) Prepara el archivo en cache si viene de content://
         Uri uploadUri = uri;
         if ("content".equals(uri.getScheme())) {
             try (InputStream is = getContentResolver().openInputStream(uri)) {
@@ -165,14 +272,12 @@ public class GrupoActivity extends AppCompatActivity {
             }
         }
 
-        // 2) Crea MultipartBody.Part
         File file = new File(uploadUri.getPath());
         RequestBody req = RequestBody.create(
                 okhttp3.MediaType.parse("image/jpeg"), file);
         String fileName = UUID.randomUUID().toString() + ".jpg";
         MultipartBody.Part part = MultipartBody.Part.createFormData("file", fileName, req);
 
-        // 3) Llama a SupabaseService con tu token y URL constantes
         SupabaseService service = RetrofitClient
                 .getInstance()
                 .create(SupabaseService.class);
@@ -182,7 +287,6 @@ public class GrupoActivity extends AppCompatActivity {
                 part
         );
 
-        // 4) Ejecuta la llamada y guarda el mensaje en Firestore
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> c, Response<ResponseBody> r) {
@@ -214,7 +318,6 @@ public class GrupoActivity extends AppCompatActivity {
                 .add(data)
                 .addOnFailureListener(e -> showToast("Error guardando imagen"));
     }
-
 
     private void cargarFotoPerfilGrupo() {
         db.collection("chats").document(chatId)
@@ -289,9 +392,11 @@ public class GrupoActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {}
         });
     }
+
     private boolean tienePermisosDeAudio() {
         return ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
+
     private void iniciarGrabacionAudio() {
         try {
             String fileName = "AUDIO_" + System.currentTimeMillis() + ".3gp";
@@ -348,12 +453,12 @@ public class GrupoActivity extends AppCompatActivity {
                     if (TextUtils.isEmpty(nombreActualUsuario)) nombreActualUsuario = "Tú";
                     enviarMensajeInicialSiEsNecesario();
                 })
-
                 .addOnFailureListener(e -> {
                     nombreActualUsuario = "Tú";
                     showToast("Error al obtener el nombre de usuario");
                 });
     }
+
     private void verificarChatGrupal() {
         db.collection("chats").document(chatId)
                 .get()
@@ -369,6 +474,7 @@ public class GrupoActivity extends AppCompatActivity {
                     finish();
                 });
     }
+
     private void enviarMensaje() {
         String mensajeTexto = editMensaje.getText().toString().trim();
         if (imageUriSeleccionada != null) {
@@ -385,6 +491,7 @@ public class GrupoActivity extends AppCompatActivity {
         guardarMensajeEnFirestore(mensajeTexto);
         editMensaje.setText("");
     }
+
     private void guardarMensajeEnFirestore(String mensajeTexto) {
         Map<String, Object> mensajeData = new HashMap<>();
         mensajeData.put("chat_id", chatId);
@@ -395,6 +502,7 @@ public class GrupoActivity extends AppCompatActivity {
 
         db.collection("notificacion").add(mensajeData);
     }
+
     private void subirImagenASupabase(Uri imagenUri) {
         try {
             String fileName = "IMG_" + System.currentTimeMillis() + ".jpg";
@@ -420,7 +528,6 @@ public class GrupoActivity extends AppCompatActivity {
                 @Override
                 public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                     if (response.isSuccessful()) {
-                        // Construimos la URL pública con tu SUPABASE_URL
                         String imageUrl = SUPABASE_URL
                                 + "/storage/v1/object/public/minechap/"
                                 + fileName;
@@ -472,23 +579,21 @@ public class GrupoActivity extends AppCompatActivity {
 
                     listaMensajes.clear();
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                        String tipo         = doc.getString("tipo");
-                        String usuarioId    = doc.getString("usuario_id");
-                        String nombreUsuario= doc.getString("nombre_usuario");
-                        Date fecha          = doc.getDate("fecha_creado");
-                        boolean esEnviado   = usuarioId != null && usuarioId.equals(currentUserId);
+                        String tipo = doc.getString("tipo");
+                        String usuarioId = doc.getString("usuario_id");
+                        String nombreUsuario = doc.getString("nombre_usuario");
+                        Date fecha = doc.getDate("fecha_creado");
+                        boolean esEnviado = usuarioId != null && usuarioId.equals(currentUserId);
 
                         if ("image".equals(tipo)) {
-                            // Mensaje de imagen
                             String imageUrl = doc.getString("image_url");
                             listaMensajes.add(new MensajeModel(
-                                    imageUrl,            // la URL
-                                    esEnviado,           // enviado o recibido
-                                    true,                // esImagen
-                                    fecha                // timestamp
+                                    imageUrl,
+                                    esEnviado,
+                                    true,
+                                    fecha
                             ));
                         } else {
-                            // Mensaje de texto (o audio si quieres manejarlo luego)
                             String mensaje = doc.getString("mensaje");
                             listaMensajes.add(new MensajeModel(
                                     mensaje,
@@ -502,7 +607,6 @@ public class GrupoActivity extends AppCompatActivity {
                     recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                 });
     }
-
 
     private void showToast(String mensaje) {
         Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show();
@@ -529,9 +633,7 @@ public class GrupoActivity extends AppCompatActivity {
                                     updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
                                     db.collection("chats").document(chatId)
                                             .update(updateChat)
-                                            .addOnSuccessListener(aVoid -> {
-                                                loadMessages();
-                                            });
+                                            .addOnSuccessListener(aVoid -> loadMessages());
                                 });
                     }
                 });
