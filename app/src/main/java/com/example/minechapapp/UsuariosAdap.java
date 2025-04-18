@@ -3,22 +3,57 @@ package com.example.minechapapp;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Filterable;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
-
+import java.util.ArrayList;
+import android.widget.Filter;
 import java.util.List;
 
-public class UsuariosAdap extends RecyclerView.Adapter<UsuariosAdap.ViewHolder> {
+public class UsuariosAdap extends RecyclerView.Adapter<UsuariosAdap.ViewHolder>implements Filterable {
 
     private List<Usuario> listaUsuarios;
+    private final List<Usuario> listaUsuariosOriginal;
     private OnUsuarioClickListener listener;
 
     public UsuariosAdap(List<Usuario> listaUsuarios, OnUsuarioClickListener listener) {
-        this.listaUsuarios = listaUsuarios;
-        this.listener = listener;
+        this.listaUsuariosOriginal = new ArrayList<>(listaUsuarios);
+        this.listaUsuarios         = listaUsuarios;
+        this.listener              = listener;
+    }
+
+    @Override
+    public Filter getFilter() {
+        return new Filter() {
+            @Override
+            protected Filter.FilterResults performFiltering(CharSequence constraint) {
+                List<Usuario> filtrados = new ArrayList<>();
+                if (constraint == null || constraint.length() == 0) {
+                    filtrados.addAll(listaUsuariosOriginal);
+                } else {
+                    String patron = constraint.toString().toLowerCase().trim();
+                    for (Usuario u : listaUsuariosOriginal) {
+                        if (u.getNombre().toLowerCase().contains(patron) ||
+                                u.getEmail().toLowerCase().contains(patron)) {
+                            filtrados.add(u);
+                        }
+                    }
+                }
+                Filter.FilterResults resultados = new Filter.FilterResults();
+                resultados.values = filtrados;
+                return resultados;
+            }
+            @Override
+            protected void publishResults(CharSequence constraint, Filter.FilterResults results) {
+                listaUsuarios.clear();
+                //noinspection unchecked
+                listaUsuarios.addAll((List<Usuario>) results.values);
+                notifyDataSetChanged();
+            }
+        };
     }
 
     @NonNull
@@ -38,6 +73,12 @@ public class UsuariosAdap extends RecyclerView.Adapter<UsuariosAdap.ViewHolder> 
     @Override
     public int getItemCount() {
         return listaUsuarios.size();
+    }
+
+    public void updateList(List<Usuario> nuevaLista) {
+        listaUsuarios.clear();
+        listaUsuarios.addAll(nuevaLista);
+        notifyDataSetChanged();
     }
 
     public interface OnUsuarioClickListener {
