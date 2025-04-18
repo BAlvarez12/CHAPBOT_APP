@@ -3,7 +3,8 @@ package com.example.minechapapp;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.media.MediaPlayer;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,6 +12,7 @@ import android.os.Environment;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.Base64;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
@@ -33,19 +35,14 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
-
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.RequestBody;
-import okhttp3.ResponseBody;
-import retrofit2.*;
-import retrofit2.converter.gson.GsonConverterFactory;
 
 public class GrupoActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
     private TextView tvNombreGrupo;
+    private ImageView imgPerfilUsuario;
     private RecyclerView recyclerMensajes;
     private EditText editMensaje;
     private ImageButton btnEnviar, btnEmoji, btnAudio, btnBack;
@@ -59,11 +56,15 @@ public class GrupoActivity extends AppCompatActivity {
     private MediaRecorder mediaRecorder;
     private boolean isRecording = false;
     private String audioFilePath;
+    private boolean permisoToastMostrado = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+
+        permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
+                .getBoolean("permiso_audio_mostrado", false);
 
         inicializarComponentes();
         configurarRecyclerMensajes();
@@ -83,41 +84,19 @@ public class GrupoActivity extends AppCompatActivity {
 
         tvNombreGrupo.setText(!TextUtils.isEmpty(nombreGrupo) ? nombreGrupo : "Chat grupal");
 
-        db.collection("chats").document(chatId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        List<String> eliminados = (List<String>) documentSnapshot.get("eliminado_por");
-                        if (eliminados != null && eliminados.contains(currentUserId)) {
-                            db.collection("chats").document(chatId)
-                                    .update("eliminado_por", FieldValue.arrayRemove(currentUserId))
-                                    .addOnSuccessListener(aVoid -> continuarCargaDelChat())
-                                    .addOnFailureListener(e -> continuarCargaDelChat());
-                        } else {
-                            continuarCargaDelChat();
-                        }
-                    } else {
-                        continuarCargaDelChat();
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    showToast("Error al verificar chat eliminado");
-                    continuarCargaDelChat();
-                });
+        obtenerNombreUsuarioActual();
+        verificarChatGrupal();
+        cargarFotoPerfilGrupo(); // NUEVO
+        loadMessages();
 
         btnEmoji.setOnClickListener(v -> seleccionarImagen());
         btnEnviar.setOnClickListener(v -> enviarMensaje());
         btnBack.setOnClickListener(v -> onBackPressed());
     }
 
-    private void continuarCargaDelChat() {
-        obtenerNombreUsuarioActual();
-        verificarChatGrupal();
-        loadMessages();
-    }
-
     private void inicializarComponentes() {
         tvNombreGrupo = findViewById(R.id.tvNombreUsuario);
+        imgPerfilUsuario = findViewById(R.id.imgPerfilUsuario); // NUEVO
         recyclerMensajes = findViewById(R.id.recyclerMensajes);
         editMensaje = findViewById(R.id.editMensaje);
         btnEnviar = findViewById(R.id.btnEnviar);
@@ -126,12 +105,28 @@ public class GrupoActivity extends AppCompatActivity {
         imgPreview = findViewById(R.id.imgPreview);
         btnBack = findViewById(R.id.btnBack);
     }
+
+    private void cargarFotoPerfilGrupo() {
+        db.collection("chats").document(chatId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    String base64 = documentSnapshot.getString("foto_grupo_base64");
+                    if (base64 != null && !base64.isEmpty()) {
+                        byte[] decodedBytes = Base64.decode(base64, Base64.DEFAULT);
+                        Bitmap bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+                        imgPerfilUsuario.setImageBitmap(bitmap);
+                    }
+                })
+                .addOnFailureListener(e -> showToast("Error al cargar foto del grupo"));
+    }
+
     private void configurarRecyclerMensajes() {
         listaMensajes = new ArrayList<>();
         mensajeAdapter = new MensajeAdapter(this, listaMensajes, true);
         recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
         recyclerMensajes.setAdapter(mensajeAdapter);
     }
+
     private void configurarPickImagen() {
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -140,7 +135,7 @@ public class GrupoActivity extends AppCompatActivity {
                         imageUriSeleccionada = result.getData().getData();
                         if (imageUriSeleccionada != null) {
                             imgPreview.setImageURI(imageUriSeleccionada);
-                            imgPreview.setVisibility(View.VISIBLE);
+                            imgPreview.setVisibility(ImageView.VISIBLE);
                         }
                     }
                 }
@@ -182,9 +177,7 @@ public class GrupoActivity extends AppCompatActivity {
                 if (s.toString().trim().isEmpty()) mostrarBotonAudio();
                 else mostrarBotonEnviar();
             }
-
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
             public void afterTextChanged(Editable s) {}
         });
     }
@@ -237,75 +230,8 @@ public class GrupoActivity extends AppCompatActivity {
         btnAudio.setVisibility(View.VISIBLE);
     }
 
-    private long getDuracionAudio(String filePath) {
-        try {
-            MediaPlayer player = new MediaPlayer();
-            player.setDataSource(filePath);
-            player.prepare();
-            int duration = player.getDuration();
-            player.release();
-            return duration;
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-    private String convertirDuracion(long milisegundos) {
-        int segundos = (int) (milisegundos / 1000);
-        int minutos = segundos / 60;
-        segundos %= 60;
-        return String.format(Locale.getDefault(), "%d:%02d", minutos, segundos);
-    }
-    private void guardarMensajeAudio(String audioUrl, String duracion) {
-        Map<String, Object> mensajeData = new HashMap<>();
-        mensajeData.put("chat_id", chatId);
-        mensajeData.put("audio_url", audioUrl);
-        mensajeData.put("duracion", duracion);
-        mensajeData.put("usuario_id", currentUserId);
-        mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
-        db.collection("notificacion").add(mensajeData)
-                .addOnSuccessListener(documentReference -> {
-                    Map<String, Object> updateChat = new HashMap<>();
-                    updateChat.put("ultimo_mensaje", "🎤 Audio");
-                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
-                    db.collection("chats").document(chatId).update(updateChat);
-                })
-                .addOnFailureListener(e -> showToast("Error al guardar audio"));
-    }
     private void subirAudioASupabase(File audioFile) {
-        String supabaseUrl = "https://vlfuswavnjmkucepynxb.supabase.co";
-        String supabaseBearerToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(supabaseUrl)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-        SupabaseService service = retrofit.create(SupabaseService.class);
-        RequestBody requestBody = RequestBody.create(MediaType.parse("audio/3gp"), audioFile);
-        MultipartBody.Part part = MultipartBody.Part.createFormData("file", audioFile.getName(), requestBody);
-
-        Call<ResponseBody> call = service.uploadFile(supabaseBearerToken, audioFile.getName(), part);
-        call.enqueue(new Callback<ResponseBody>() {
-            @Override
-            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                if (response.isSuccessful()) {
-                    String audioUrl = supabaseUrl + "/storage/v1/object/public/minechap/" + audioFile.getName();
-                    long duracion = getDuracionAudio(audioFile.getAbsolutePath());
-                    String duracionTexto = convertirDuracion(duracion);
-                    listaMensajes.add(new MensajeModel(audioUrl, duracionTexto, true, new Date()));
-                    mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
-                    recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
-
-                    guardarMensajeAudio(audioUrl, duracionTexto);
-                } else {
-                    showToast("Error al subir audio: " + response.code());
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ResponseBody> call, Throwable t) {
-                t.printStackTrace();
-                showToast("Fallo al conectar con Supabase");
-            }
-        });
+        showToast("Función para subir audio aún no implementada");
     }
 
     private void obtenerNombreUsuarioActual() {
@@ -314,9 +240,7 @@ public class GrupoActivity extends AppCompatActivity {
                 .addOnSuccessListener(documentSnapshot -> {
                     nombreActualUsuario = documentSnapshot.getString("nombre");
                     if (TextUtils.isEmpty(nombreActualUsuario)) nombreActualUsuario = "Tú";
-                    enviarMensajeInicialSiEsNecesario();
-
-    })
+                })
                 .addOnFailureListener(e -> {
                     nombreActualUsuario = "Tú";
                     showToast("Error al obtener el nombre de usuario");
@@ -341,6 +265,7 @@ public class GrupoActivity extends AppCompatActivity {
 
     private void enviarMensaje() {
         String mensajeTexto = editMensaje.getText().toString().trim();
+
         if (mensajeTexto.isEmpty() && imageUriSeleccionada == null) {
             showToast("Debes escribir un mensaje o enviar una imagen");
             return;
@@ -356,7 +281,7 @@ public class GrupoActivity extends AppCompatActivity {
 
         if (imageUriSeleccionada != null) {
             subirImagenAFirestore(imageUriSeleccionada);
-            imgPreview.setVisibility(View.GONE);
+            imgPreview.setVisibility(ImageView.GONE);
             imageUriSeleccionada = null;
         }
     }
@@ -388,51 +313,16 @@ public class GrupoActivity extends AppCompatActivity {
 
                     listaMensajes.clear();
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
+                        String mensaje = doc.getString("mensaje");
                         String usuarioId = doc.getString("usuario_id");
                         String nombreUsuario = doc.getString("nombre_usuario");
                         Date fecha = doc.getDate("fecha_creado");
-                        boolean esEnviado = usuarioId != null && usuarioId.equals(currentUserId);
-                        String audioUrl = doc.getString("audio_url");
-                        String duracion = doc.getString("duracion");
 
-                        if (audioUrl != null && duracion != null) {
-                            listaMensajes.add(new MensajeModel(audioUrl, duracion, esEnviado, fecha));
-                        } else {
-                            String mensaje = doc.getString("mensaje");
-                            listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha));
-                        }
+                        boolean esEnviado = usuarioId != null && usuarioId.equals(currentUserId);
+                        listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha));
                     }
                     mensajeAdapter.notifyDataSetChanged();
                     recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
-                });
-    }
-
-    private void enviarMensajeInicialSiEsNecesario() {
-        db.collection("notificacion")
-                .whereEqualTo("chat_id", chatId)
-                .limit(1)
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (queryDocumentSnapshots.isEmpty()) {
-                        String mensaje = "Grupo creado por " + nombreActualUsuario;
-                        Map<String, Object> mensajeData = new HashMap<>();
-                        mensajeData.put("chat_id", chatId);
-                        mensajeData.put("mensaje", mensaje);
-                        mensajeData.put("usuario_id", currentUserId);
-                        mensajeData.put("nombre_usuario", nombreActualUsuario);
-                        mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
-                        db.collection("notificacion").add(mensajeData)
-                                .addOnSuccessListener(documentReference -> {
-                                    Map<String, Object> updateChat = new HashMap<>();
-                                    updateChat.put("ultimo_mensaje", mensaje);
-                                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
-                                    db.collection("chats").document(chatId)
-                                            .update(updateChat)
-                                            .addOnSuccessListener(aVoid -> {
-                                                loadMessages();
-                                            });
-                                });
-                    }
                 });
     }
 

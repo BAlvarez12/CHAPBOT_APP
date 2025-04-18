@@ -9,6 +9,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.ImageView;
+
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -23,22 +27,20 @@ public class SplashActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         if (!isTaskRoot()) {
             finish();
             return;
         }
-
         setContentView(R.layout.activity_splash);
-        Log.d(TAG, "onCreate: Iniciando SplashActivity...");
-
         crearCanalDeNotificacion();
-
+        ImageView mensaje = findViewById(R.id.imgMensaje);
+        Animation rotar = AnimationUtils.loadAnimation(this, R.anim.animacion_splash);
+        mensaje.startAnimation(rotar);
         handler = new Handler(Looper.getMainLooper());
         splashRunnable = this::goToNextScreen;
-
         handler.postDelayed(splashRunnable, SPLASH_DURATION);
     }
+
 
     private void crearCanalDeNotificacion() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

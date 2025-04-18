@@ -60,7 +60,7 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.9.1")
     implementation("com.google.firebase:firebase-messaging:23.4.1")
     implementation ("com.squareup.okhttp3:okhttp:4.12.0")
-
+    implementation ("com.airbnb.android:lottie:6.4.0")
 
 }
 
