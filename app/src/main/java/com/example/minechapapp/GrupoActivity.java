@@ -3,6 +3,8 @@ package com.example.minechapapp;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
@@ -10,6 +12,7 @@ import android.os.Environment;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.Base64;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
@@ -20,8 +23,8 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -34,16 +37,12 @@ import com.google.firebase.firestore.Query;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public class GrupoActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
     private TextView tvNombreGrupo;
+    private ImageView imgPerfilUsuario;
     private RecyclerView recyclerMensajes;
     private EditText editMensaje;
     private ImageButton btnEnviar, btnEmoji, btnAudio, btnBack;
@@ -71,6 +70,7 @@ public class GrupoActivity extends AppCompatActivity {
         configurarRecyclerMensajes();
         configurarPickImagen();
         configurarGrabacionAudio();
+
         db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         chatId = getIntent().getStringExtra("chatId");
@@ -81,10 +81,14 @@ public class GrupoActivity extends AppCompatActivity {
             finish();
             return;
         }
+
         tvNombreGrupo.setText(!TextUtils.isEmpty(nombreGrupo) ? nombreGrupo : "Chat grupal");
+
         obtenerNombreUsuarioActual();
         verificarChatGrupal();
+        cargarFotoPerfilGrupo(); // NUEVO
         loadMessages();
+
         btnEmoji.setOnClickListener(v -> seleccionarImagen());
         btnEnviar.setOnClickListener(v -> enviarMensaje());
         btnBack.setOnClickListener(v -> onBackPressed());
@@ -92,6 +96,7 @@ public class GrupoActivity extends AppCompatActivity {
 
     private void inicializarComponentes() {
         tvNombreGrupo = findViewById(R.id.tvNombreUsuario);
+        imgPerfilUsuario = findViewById(R.id.imgPerfilUsuario); // NUEVO
         recyclerMensajes = findViewById(R.id.recyclerMensajes);
         editMensaje = findViewById(R.id.editMensaje);
         btnEnviar = findViewById(R.id.btnEnviar);
@@ -100,12 +105,28 @@ public class GrupoActivity extends AppCompatActivity {
         imgPreview = findViewById(R.id.imgPreview);
         btnBack = findViewById(R.id.btnBack);
     }
+
+    private void cargarFotoPerfilGrupo() {
+        db.collection("chats").document(chatId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    String base64 = documentSnapshot.getString("foto_grupo_base64");
+                    if (base64 != null && !base64.isEmpty()) {
+                        byte[] decodedBytes = Base64.decode(base64, Base64.DEFAULT);
+                        Bitmap bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+                        imgPerfilUsuario.setImageBitmap(bitmap);
+                    }
+                })
+                .addOnFailureListener(e -> showToast("Error al cargar foto del grupo"));
+    }
+
     private void configurarRecyclerMensajes() {
         listaMensajes = new ArrayList<>();
         mensajeAdapter = new MensajeAdapter(this, listaMensajes, true);
         recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
         recyclerMensajes.setAdapter(mensajeAdapter);
     }
+
     private void configurarPickImagen() {
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -120,11 +141,13 @@ public class GrupoActivity extends AppCompatActivity {
                 }
         );
     }
+
     private void seleccionarImagen() {
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/*");
         imagePickerLauncher.launch(intent);
     }
+
     private void configurarGrabacionAudio() {
         btnAudio.setOnTouchListener((v, event) -> {
             switch (event.getAction()) {
@@ -148,6 +171,7 @@ public class GrupoActivity extends AppCompatActivity {
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 200);
         }
+
         editMensaje.addTextChangedListener(new TextWatcher() {
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (s.toString().trim().isEmpty()) mostrarBotonAudio();
@@ -157,9 +181,11 @@ public class GrupoActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {}
         });
     }
+
     private boolean tienePermisosDeAudio() {
         return ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
+
     private void iniciarGrabacionAudio() {
         try {
             String fileName = "AUDIO_" + System.currentTimeMillis() + ".3gp";
@@ -299,6 +325,7 @@ public class GrupoActivity extends AppCompatActivity {
                     recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                 });
     }
+
     private void showToast(String mensaje) {
         Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show();
     }
