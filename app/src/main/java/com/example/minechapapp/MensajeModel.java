@@ -32,6 +32,15 @@ public class MensajeModel {
         this.enviado = esEnviado;
         this.fecha = fecha;
     }
+
+    public MensajeModel(String mensaje, boolean enviado, String nombreUsuario, Date fecha, String imageUrl) {
+        this.mensaje = mensaje;
+        this.enviado = enviado;
+        this.nombreUsuario = nombreUsuario;
+        this.fecha = fecha;
+        this.imageUrl = imageUrl;
+    }
+
     public String getMensaje() {
         return mensaje;
     }

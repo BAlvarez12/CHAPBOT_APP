@@ -61,6 +61,7 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging:23.4.1")
     implementation ("com.squareup.okhttp3:okhttp:4.12.0")
     implementation ("com.airbnb.android:lottie:6.4.0")
+    implementation("com.squareup.retrofit2:converter-scalars:2.9.0")
 
 }
 

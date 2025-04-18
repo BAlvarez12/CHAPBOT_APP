@@ -38,15 +38,27 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
+import java.io.InputStream;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import android.Manifest;
+import android.os.Build;
 
 public class GrupoActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
+
+    private static final String SUPABASE_URL   = "https://vlfuswavnjmkucepynxb.supabase.co";
+    private static final String SUPABASE_TOKEN =
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
     private TextView tvNombreGrupo;
     private ImageView imgPerfilUsuario;
     private RecyclerView recyclerMensajes;
     private EditText editMensaje;
     private ImageButton btnEnviar, btnEmoji, btnAudio, btnBack;
-    private ImageView imgPreview;
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private MensajeAdapter mensajeAdapter;
     private List<MensajeModel> listaMensajes;
@@ -71,6 +83,34 @@ public class GrupoActivity extends AppCompatActivity {
         configurarPickImagen();
         configurarGrabacionAudio();
 
+        imagePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        Uri imageUri = result.getData().getData();
+                        if (imageUri != null) {
+                            prepareAndUploadImage(imageUri);
+                        }
+                    }
+                }
+        );
+
+// — 2) Al pulsar el botón “+” abrimos la galería con permisos
+        btnEmoji.setOnClickListener(v -> {
+            String permiso = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                    ? Manifest.permission.READ_MEDIA_IMAGES
+                    : Manifest.permission.READ_EXTERNAL_STORAGE;
+
+            if (ContextCompat.checkSelfPermission(this, permiso)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{ permiso }, 300);
+            } else {
+                Intent intent = new Intent(Intent.ACTION_PICK);
+                intent.setType("image/*");
+                imagePickerLauncher.launch(intent);
+            }
+        });
+
         db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         chatId = getIntent().getStringExtra("chatId");
@@ -89,7 +129,6 @@ public class GrupoActivity extends AppCompatActivity {
         cargarFotoPerfilGrupo(); // NUEVO
         loadMessages();
 
-        btnEmoji.setOnClickListener(v -> seleccionarImagen());
         btnEnviar.setOnClickListener(v -> enviarMensaje());
         btnBack.setOnClickListener(v -> onBackPressed());
     }
@@ -102,9 +141,80 @@ public class GrupoActivity extends AppCompatActivity {
         btnEnviar = findViewById(R.id.btnEnviar);
         btnAudio = findViewById(R.id.btnAudio);
         btnEmoji = findViewById(R.id.btnEmoji);
-        imgPreview = findViewById(R.id.imgPreview);
         btnBack = findViewById(R.id.btnBack);
     }
+
+    private void prepareAndUploadImage(Uri uri) {
+        // 1) Prepara el archivo en cache si viene de content://
+        Uri uploadUri = uri;
+        if ("content".equals(uri.getScheme())) {
+            try (InputStream is = getContentResolver().openInputStream(uri)) {
+                File tmp = new File(getCacheDir(), "upload_" + UUID.randomUUID() + ".jpg");
+                try (FileOutputStream fos = new FileOutputStream(tmp)) {
+                    byte[] buf = new byte[8192];
+                    int len;
+                    while ((len = is.read(buf)) > 0) {
+                        fos.write(buf, 0, len);
+                    }
+                }
+                uploadUri = Uri.fromFile(tmp);
+            } catch (IOException e) {
+                e.printStackTrace();
+                showToast("Error preparando imagen: " + e.getMessage());
+                return;
+            }
+        }
+
+        // 2) Crea MultipartBody.Part
+        File file = new File(uploadUri.getPath());
+        RequestBody req = RequestBody.create(
+                okhttp3.MediaType.parse("image/jpeg"), file);
+        String fileName = UUID.randomUUID().toString() + ".jpg";
+        MultipartBody.Part part = MultipartBody.Part.createFormData("file", fileName, req);
+
+        // 3) Llama a SupabaseService con tu token y URL constantes
+        SupabaseService service = RetrofitClient
+                .getInstance()
+                .create(SupabaseService.class);
+        Call<ResponseBody> call = service.uploadFile(
+                SUPABASE_TOKEN,
+                fileName,
+                part
+        );
+
+        // 4) Ejecuta la llamada y guarda el mensaje en Firestore
+        call.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> c, Response<ResponseBody> r) {
+                if (r.isSuccessful()) {
+                    String imageUrl = SUPABASE_URL
+                            + "/storage/v1/object/public/minechap/" + fileName;
+                    saveImageMessage(imageUrl);
+                } else {
+                    showToast("Error subiendo imagen: " + r.code());
+                }
+            }
+            @Override
+            public void onFailure(Call<ResponseBody> c, Throwable t) {
+                showToast("Fallo al conectar: " + t.getMessage());
+            }
+        });
+    }
+
+    private void saveImageMessage(String imageUrl) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("chat_id", chatId);
+        data.put("tipo", "image");
+        data.put("image_url", imageUrl);
+        data.put("usuario_id", currentUserId);
+        data.put("nombre_usuario", nombreActualUsuario);
+        data.put("fecha_creado", FieldValue.serverTimestamp());
+
+        db.collection("notificacion")
+                .add(data)
+                .addOnFailureListener(e -> showToast("Error guardando imagen"));
+    }
+
 
     private void cargarFotoPerfilGrupo() {
         db.collection("chats").document(chatId)
@@ -134,8 +244,6 @@ public class GrupoActivity extends AppCompatActivity {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         imageUriSeleccionada = result.getData().getData();
                         if (imageUriSeleccionada != null) {
-                            imgPreview.setImageURI(imageUriSeleccionada);
-                            imgPreview.setVisibility(ImageView.VISIBLE);
                         }
                     }
                 }
@@ -266,24 +374,24 @@ public class GrupoActivity extends AppCompatActivity {
     private void enviarMensaje() {
         String mensajeTexto = editMensaje.getText().toString().trim();
 
-        if (mensajeTexto.isEmpty() && imageUriSeleccionada == null) {
+        // — Si hay imagen seleccionada, enviamos SÓLO la imagen y salimos
+        if (imageUriSeleccionada != null) {
+            subirImagenASupabase(imageUriSeleccionada);
+            return;   // importante: salimos antes de procesar texto
+        }
+
+        // — Si no hay texto tampoco, avisamos
+        if (mensajeTexto.isEmpty()) {
             showToast("Debes escribir un mensaje o enviar una imagen");
             return;
         }
 
-        if (!mensajeTexto.isEmpty()) {
-            listaMensajes.add(new MensajeModel(mensajeTexto, true, nombreActualUsuario, new Date()));
-            mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
-            recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
-            guardarMensajeEnFirestore(mensajeTexto);
-            editMensaje.setText("");
-        }
-
-        if (imageUriSeleccionada != null) {
-            subirImagenAFirestore(imageUriSeleccionada);
-            imgPreview.setVisibility(ImageView.GONE);
-            imageUriSeleccionada = null;
-        }
+        // — Si llegamos aquí, es un mensaje de texto puro
+        listaMensajes.add(new MensajeModel(mensajeTexto, true, nombreActualUsuario, new Date()));
+        mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
+        recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
+        guardarMensajeEnFirestore(mensajeTexto);
+        editMensaje.setText("");
     }
 
     private void guardarMensajeEnFirestore(String mensajeTexto) {
@@ -297,8 +405,76 @@ public class GrupoActivity extends AppCompatActivity {
         db.collection("notificacion").add(mensajeData);
     }
 
-    private void subirImagenAFirestore(Uri imagenUri) {
-        showToast("Función para subir imágenes aún no implementada");
+    private void subirImagenASupabase(Uri imagenUri) {
+        try {
+            // 1) Preparamos nombre de archivo
+            String fileName = "IMG_" + System.currentTimeMillis() + ".jpg";
+
+            // 2) Convertimos el URI a RequestBody
+            InputStream inputStream = getContentResolver().openInputStream(imagenUri);
+            byte[] bytes = new byte[inputStream.available()];
+            inputStream.read(bytes);
+            inputStream.close();
+
+            RequestBody requestFile =
+                    RequestBody.create(bytes, okhttp3.MediaType.parse("image/jpeg"));
+            MultipartBody.Part body =
+                    MultipartBody.Part.createFormData("file", fileName, requestFile);
+
+            // 3) Llamamos a SupabaseService
+            SupabaseService service = RetrofitClient
+                    .getInstance()
+                    .create(SupabaseService.class);
+            // Reemplaza YOUR_SUPABASE_KEY por tu token real
+            Call<ResponseBody> call = service.uploadFile(
+                    SUPABASE_TOKEN,
+                    fileName,
+                    body
+            );
+
+            // 4) Ejecutamos la llamada
+            call.enqueue(new Callback<ResponseBody>() {
+                @Override
+                public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                    if (response.isSuccessful()) {
+                        // Construimos la URL pública con tu SUPABASE_URL
+                        String imageUrl = SUPABASE_URL
+                                + "/storage/v1/object/public/minechap/"
+                                + fileName;
+                        guardarMensajeImagenEnFirestore(imageUrl);
+                    } else {
+                        showToast("Error al subir imagen: " + response.code());
+                    }
+                    imageUriSeleccionada = null;
+                }
+
+                @Override
+                public void onFailure(Call<ResponseBody> call, Throwable t) {
+                    showToast("Fallo en la carga: " + t.getMessage());
+                    imageUriSeleccionada = null;
+                }
+            });
+
+        } catch (Exception e) {
+            showToast("Error leyendo imagen: " + e.getMessage());
+        }
+    }
+
+    private void guardarMensajeImagenEnFirestore(String imageUrl) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("chat_id", chatId);
+        data.put("usuario_id", currentUserId);
+        data.put("nombre_usuario", nombreActualUsuario);
+        data.put("imagen_url", imageUrl);
+        data.put("fecha_creado", FieldValue.serverTimestamp());
+
+        db.collection("notificacion")
+                .add(data)
+                .addOnSuccessListener(doc -> {
+                })
+                .addOnFailureListener(e -> {
+                    showToast("Error guardando imagen en chat");
+                });
     }
 
     private void loadMessages() {
@@ -313,18 +489,37 @@ public class GrupoActivity extends AppCompatActivity {
 
                     listaMensajes.clear();
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                        String mensaje = doc.getString("mensaje");
-                        String usuarioId = doc.getString("usuario_id");
-                        String nombreUsuario = doc.getString("nombre_usuario");
-                        Date fecha = doc.getDate("fecha_creado");
+                        String tipo         = doc.getString("tipo");
+                        String usuarioId    = doc.getString("usuario_id");
+                        String nombreUsuario= doc.getString("nombre_usuario");
+                        Date fecha          = doc.getDate("fecha_creado");
+                        boolean esEnviado   = usuarioId != null && usuarioId.equals(currentUserId);
 
-                        boolean esEnviado = usuarioId != null && usuarioId.equals(currentUserId);
-                        listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha));
+                        if ("image".equals(tipo)) {
+                            // Mensaje de imagen
+                            String imageUrl = doc.getString("image_url");
+                            listaMensajes.add(new MensajeModel(
+                                    imageUrl,            // la URL
+                                    esEnviado,           // enviado o recibido
+                                    true,                // esImagen
+                                    fecha                // timestamp
+                            ));
+                        } else {
+                            // Mensaje de texto (o audio si quieres manejarlo luego)
+                            String mensaje = doc.getString("mensaje");
+                            listaMensajes.add(new MensajeModel(
+                                    mensaje,
+                                    esEnviado,
+                                    nombreUsuario,
+                                    fecha
+                            ));
+                        }
                     }
                     mensajeAdapter.notifyDataSetChanged();
                     recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                 });
     }
+
 
     private void showToast(String mensaje) {
         Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show();

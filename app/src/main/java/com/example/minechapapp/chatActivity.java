@@ -79,7 +79,7 @@ public class chatActivity extends AppCompatActivity {
     private RecyclerView recyclerMensajes;
     private EditText editMensaje;
     private ImageButton btnEnviar, btnEmoji, btnAudio;
-    private ImageView imgPreview, imgPerfilUsuario;
+    private ImageView imgPerfilUsuario;
     private FrameLayout contenedorBotonEnviar;
     private MediaRecorder mediaRecorder;
     private boolean isRecording = false;
@@ -471,7 +471,6 @@ public class chatActivity extends AppCompatActivity {
         editMensaje = findViewById(R.id.editMensaje);
         btnEnviar = findViewById(R.id.btnEnviar);
         btnAudio = findViewById(R.id.btnAudio);
-        imgPreview = findViewById(R.id.imgPreview);
         imgPerfilUsuario = findViewById(R.id.imgPerfilUsuario);
         btnEmoji = findViewById(R.id.btnEmoji);
         contenedorBotonEnviar = findViewById(R.id.contenedorBotonEnviar);

@@ -91,17 +91,6 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 
-
-    <ImageView
-        android:id="@+id/imgPreview"
-        android:layout_width="200dp"
-        android:layout_height="200dp"
-        android:scaleType="fitCenter"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/layoutToolbarSinBarra"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerMensajes"
         android:layout_width="0dp"
