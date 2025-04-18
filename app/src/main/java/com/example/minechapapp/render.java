@@ -10,7 +10,7 @@ import org.json.JSONObject;
 
 public class render {
 
-    private void render(String receptorToken, String titulo, String contenido, String idChat) {
+    public void render(String receptorToken, String titulo, String contenido, String idChat) {
         OkHttpClient render = new OkHttpClient();
 
         JSONObject datos = new JSONObject();

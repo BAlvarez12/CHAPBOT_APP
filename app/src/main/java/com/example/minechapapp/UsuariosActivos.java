@@ -27,15 +27,10 @@ public class UsuariosActivos extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_usuarios);
 
-        // 1) Inicializamos RecyclerView
         recyclerView = findViewById(R.id.recyclerViewUsuarios);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-
-        // 2) Preparamos la lista vacía y Firestore
         listaUsuarios = new ArrayList<>();
         db = FirebaseFirestore.getInstance();
-
-        // 3) Configuramos el SearchView para que siempre esté desplegado
         SearchView searchView = findViewById(R.id.searchUsuarios);
         searchView.setIconifiedByDefault(false);
         searchView.setIconified(false);
@@ -55,7 +50,6 @@ public class UsuariosActivos extends AppCompatActivity {
             }
         });
 
-        // 4) Cargamos los usuarios y solo entonces creamos el adaptador
         cargarUsuariosDesdeFirestore();
     }
 
@@ -63,7 +57,6 @@ public class UsuariosActivos extends AppCompatActivity {
         db.collection("usuarios")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    // 4.1) Llenamos la lista de usuarios
                     listaUsuarios.clear();
                     for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         String uid    = doc.getId();
@@ -71,8 +64,6 @@ public class UsuariosActivos extends AppCompatActivity {
                         String email  = doc.getString("email");
                         listaUsuarios.add(new Usuario(uid, nombre, email));
                     }
-
-                    // 4.2) Creamos el adaptador con DATOS (no antes)
                     usuarioAdapter = new UsuariosAdap(listaUsuarios, usuario -> {
                         Toast.makeText(UsuariosActivos.this,
                                 "Elegiste chatear con: " + usuario.getNombre(),

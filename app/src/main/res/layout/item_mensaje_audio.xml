@@ -4,34 +4,65 @@
     android:orientation="horizontal"
     android:gravity="end"
     android:padding="8dp">
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="@drawable/bubble_sent"
+        android:orientation="vertical"
+        android:background="@drawable/play_button"
         android:padding="12dp"
-        android:elevation="2dp"
-        android:layout_marginBottom="8dp"
         android:layout_marginStart="48dp"
         android:layout_marginEnd="4dp"
-        android:gravity="center_vertical">
-        <ImageButton
-            android:id="@+id/btnPlayAudio"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:scaleType="centerInside"
-            android:padding="4dp"
-            android:background="@drawable/play_button"
-            android:src="@drawable/ic_play"
-            android:contentDescription="Reproducir audio" />
+        android:layout_marginBottom="8dp"
+        android:elevation="3dp"
+        android:clipToPadding="false"
+        android:clipChildren="false"
+        android:layout_gravity="end">
+
         <TextView
-            android:id="@+id/tvDuracionAudio"
+            android:id="@+id/tvNombreUsuarioAudio"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="0:15"
-            android:textSize="14sp"
-            android:textColor="@android:color/black"
-            android:layout_gravity="center_vertical"
-            android:layout_marginStart="12dp"/>
+            android:text="Nombre"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:layout_marginBottom="6dp"
+            android:textColor="#B0BEC5" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageButton
+                android:id="@+id/btnPlayAudio"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/avd_play_pause_vector"
+                android:contentDescription="Reproducir audio"
+                android:tint="#FFFFFF" />
+
+            <SeekBar
+                android:id="@+id/seekBarAudio"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:progress="0"
+                android:max="100"
+                android:thumbTint="#00BCD4"
+                android:progressTint="#00BCD4"
+                android:backgroundTint="#455A64" />
+
+            <TextView
+                android:id="@+id/tvDuracionAudio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:15"
+                android:textSize="13sp"
+                android:textColor="#ECEFF1"
+                android:layout_marginStart="12dp" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

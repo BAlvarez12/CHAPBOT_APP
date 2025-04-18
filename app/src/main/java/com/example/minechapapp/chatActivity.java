@@ -28,6 +28,8 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.example.minechapapp.helpers.ControladorNotificaciones;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -65,17 +67,12 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.util.UUID;
 import java.io.InputStream;
 import java.io.FileOutputStream;
-
-
+import com.example.minechapapp.ImagenChats;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.http.*;
-import android.widget.LinearLayout;
-import com.bumptech.glide.Glide;
-import android.view.View;
-
 public class chatActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_INDIVIDUAL_ID = "NCm3QCIsKw8MjjHycvm5";
     private TextView tvGrabando;
@@ -85,9 +82,6 @@ public class chatActivity extends AppCompatActivity {
     private ImageButton btnEnviar, btnEmoji, btnAudio;
     private ImageView imgPerfilUsuario;
     private FrameLayout contenedorBotonEnviar;
-    private MediaRecorder mediaRecorder;
-    private boolean isRecording = false;
-    private String audioFilePath;
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private MensajeAdapter mensajeAdapter;
     private List<MensajeModel> listaMensajes;
@@ -103,33 +97,33 @@ public class chatActivity extends AppCompatActivity {
             "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
     private static final String SUPABASE_URL   = "https://vlfuswavnjmkucepynxb.supabase.co/";
     private static final int RC_PICK_IMAGE = 300;
-    private LinearLayout layoutReplyPreview;
-    private TextView tvReplyPreview;
-    private ImageView imgReplyPreview;
-    private ImageView btnCerrarReply;
-    private String mensajeRespondido = null;
-    private String tipoMensajeRespondido = null;
-    private String urlRespuesta = null;
-    private String duracionRespuesta = null;
-
+    private AudioGrabacion audioGrabacion;
+    private ImagenChats imagenChats;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        500);
+            }
+        }
+
         supabase = new Retrofit.Builder()
                 .baseUrl(SUPABASE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(SupabaseService.class);
 
-
         permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
                 .getBoolean("permiso_audio_mostrado", false);
 
         inicializarComponentes();
-        configurarRecyclerView(); // Aquí ya incluye el listener para mensajeRespondido
-
+        configurarRecyclerView();
         db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         receiverId = getIntent().getStringExtra("USER_ID");
@@ -143,7 +137,6 @@ public class chatActivity extends AppCompatActivity {
         }
 
         tvNombreUsuario.setText(!TextUtils.isEmpty(nombreUsuario) ? nombreUsuario : "Chat");
-
         cargarFotoPerfil(receiverId);
 
         if (currentUserId.compareTo(receiverId) < 0) {
@@ -155,6 +148,8 @@ public class chatActivity extends AppCompatActivity {
         }
 
         chatId = generarChatId(usuarioA, usuarioB);
+        audioGrabacion = new AudioGrabacion(this, chatId, currentUserId, nombreActualUsuario);
+        imagenChats = new ImagenChats(this, chatId, currentUserId, nombreActualUsuario);
 
         db.collection("chats").document(chatId)
                 .get()
@@ -184,21 +179,22 @@ public class chatActivity extends AppCompatActivity {
                 });
 
         Animation clickAnimation = AnimationUtils.loadAnimation(this, R.anim.click);
+
         btnAudio.setOnTouchListener((v, event) -> {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     if (!tienePermisosDeAudio()) {
                         requestPermissions(new String[]{
-                                Manifest.permission.RECORD_AUDIO
+                                android.Manifest.permission.RECORD_AUDIO
                         }, 200);
                         return false;
                     }
-                    iniciarGrabacionAudio();
+                    audioGrabacion.startRecording();
                     return true;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    if (isRecording) {
-                        detenerGrabacionAudio();
+                    if (audioGrabacion.isRecording()) {
+                        audioGrabacion.stopRecording();
                     }
                     return true;
             }
@@ -212,13 +208,13 @@ public class chatActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> onBackPressed());
 
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
-                checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
-                checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
+                checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
+                checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{
-                    Manifest.permission.RECORD_AUDIO,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    Manifest.permission.READ_EXTERNAL_STORAGE
+                    android.Manifest.permission.RECORD_AUDIO,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE
             }, 200);
         }
 
@@ -228,7 +224,7 @@ public class chatActivity extends AppCompatActivity {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            prepareAndUploadImage(imageUri);
+                            imagenChats.enviarImagen(imageUri);
                         }
                     }
                 }
@@ -241,7 +237,7 @@ public class chatActivity extends AppCompatActivity {
 
             if (ContextCompat.checkSelfPermission(this, permisoGaleria)
                     != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{ permisoGaleria }, RC_PICK_IMAGE);
+                requestPermissions(new String[]{permisoGaleria}, RC_PICK_IMAGE);
             } else {
                 Intent intent = new Intent(Intent.ACTION_PICK);
                 intent.setType("image/*");
@@ -266,8 +262,6 @@ public class chatActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {}
         });
     }
-
-
     private void cargarFotoPerfil(String userId) {
         db.collection("usuarios").document(userId)
                 .get()
@@ -278,12 +272,8 @@ public class chatActivity extends AppCompatActivity {
                             try {
                                 byte[] decodedString = Base64.decode(fotoBase64, Base64.DEFAULT);
                                 Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-
-                                // Aplicar el fondo redondo
                                 imgPerfilUsuario.setBackgroundResource(R.drawable.imagen_redonda);
                                 imgPerfilUsuario.setImageBitmap(decodedByte);
-
-                                // Esto es importante para que se vea redondo
                                 imgPerfilUsuario.setClipToOutline(true);
                             } catch (Exception e) {
                                 showToast("Error al procesar la imagen");
@@ -299,11 +289,8 @@ public class chatActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
         if (requestCode == RC_PICK_IMAGE) {
-            // Respuesta al permiso de galería
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Ya tenemos permiso: abrimos la galería
                 Intent intent = new Intent(Intent.ACTION_PICK);
                 intent.setType("image/*");
                 imagePickerLauncher.launch(intent);
@@ -330,103 +317,6 @@ public class chatActivity extends AppCompatActivity {
     private boolean tienePermisosDeAudio() {
         return ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
-
-
-    private void iniciarGrabacionAudio() {
-        if (!tienePermisosDeAudio()) {
-            showToast("Debes conceder permisos de grabación");
-            return;
-        }
-        try {
-            String fileName = "AUDIO_" + System.currentTimeMillis() + ".3gp";
-            File audioDir = getExternalFilesDir(Environment.DIRECTORY_MUSIC);
-            File audioFile = new File(audioDir, fileName);
-            audioFilePath = audioFile.getAbsolutePath();
-
-            mediaRecorder = new MediaRecorder();
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-            mediaRecorder.setOutputFile(audioFilePath);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-            mediaRecorder.prepare();
-            mediaRecorder.start();
-
-            isRecording = true;
-            showToast("🎙 Grabando...");
-        } catch (IOException e) {
-            e.printStackTrace();
-            showToast("Error al iniciar grabación");
-        }
-    }
-
-    private void detenerGrabacionAudio() {
-        if (isRecording && mediaRecorder != null) {
-            try {
-                mediaRecorder.stop();
-                mediaRecorder.release();
-                mediaRecorder = null;
-                isRecording = false;
-                tvGrabando.setVisibility(View.GONE);
-
-                File audioFile = new File(audioFilePath);
-                subirAudioASupabase(audioFile);
-            } catch (Exception e) {
-                e.printStackTrace();
-                tvGrabando.setVisibility(View.GONE);
-                showToast("Error al detener grabación");
-            }
-        }
-    }
-
-    private void prepareAndUploadImage(Uri uri) {
-        // 1) copiar a cache si viene de content://
-        Uri uploadUri = uri;
-        if ("content".equals(uri.getScheme())) {
-            try (InputStream is = getContentResolver().openInputStream(uri)) {
-                File tmp = new File(getCacheDir(), "upload_" + UUID.randomUUID() + ".jpg");
-                try (FileOutputStream fos = new FileOutputStream(tmp)) {
-                    byte[] buf = new byte[8192];
-                    int len;
-                    while ((len = is.read(buf)) > 0) {
-                        fos.write(buf, 0, len);
-                    }
-                }
-                uploadUri = Uri.fromFile(tmp);
-            } catch (IOException e) {
-                e.printStackTrace();
-                Toast.makeText(this, "Error preparando imagen: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                return;
-            }
-        }
-
-        // 2) preparar el multipart
-        File file = new File(uploadUri.getPath());
-        RequestBody req = RequestBody.create(MediaType.parse("image/jpeg"), file);
-        String fileName = UUID.randomUUID().toString() + ".jpg";
-        MultipartBody.Part part = MultipartBody.Part.createFormData("file", fileName, req);
-
-        // 3) llamar a Supabase
-        supabase.uploadFile(SUPABASE_TOKEN, fileName, part)
-                .enqueue(new Callback<ResponseBody>() {
-                    @Override public void onResponse(Call<ResponseBody> c, Response<ResponseBody> r) {
-                        if (r.isSuccessful()) {
-                            String imageUrl = SUPABASE_URL
-                                    + "storage/v1/object/public/minechap/" + fileName;
-                            saveImageMessage(imageUrl);
-                        } else {
-                            Toast.makeText(chatActivity.this,
-                                    "Error subiendo imagen: " + r.code(),
-                                    Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                    @Override public void onFailure(Call<ResponseBody> c, Throwable t) {
-                        Toast.makeText(chatActivity.this,
-                                "Fallo al conectar con Supabase: " + t.getMessage(),
-                                Toast.LENGTH_SHORT).show();
-                    }
-                });
-    }
-
 
     private void mostrarBotonEnviar() {
         if (btnEnviar.getVisibility() != View.VISIBLE) {
@@ -469,23 +359,6 @@ public class chatActivity extends AppCompatActivity {
                     }).start();
         }
     }
-    private void mostrarVistaPreviaRespuesta() {
-        layoutReplyPreview.setVisibility(View.VISIBLE);
-        tvReplyPreview.setVisibility(View.VISIBLE);
-        imgReplyPreview.setVisibility(View.GONE);
-
-        if ("text".equals(tipoMensajeRespondido)) {
-            tvReplyPreview.setText("↪️ " + mensajeRespondido);
-        } else if ("image".equals(tipoMensajeRespondido)) {
-            tvReplyPreview.setText("↪️ Imagen");
-            imgReplyPreview.setVisibility(View.VISIBLE);
-            Glide.with(this).load(urlRespuesta).into(imgReplyPreview);
-        } else if ("audio".equals(tipoMensajeRespondido)) {
-            tvReplyPreview.setText("↪️ Audio" + (duracionRespuesta != null ? " (" + duracionRespuesta + ")" : ""));
-        } else {
-            layoutReplyPreview.setVisibility(View.GONE);
-        }
-    }
 
     private void inicializarComponentes() {
         tvNombreUsuario = findViewById(R.id.tvNombreUsuario);
@@ -499,10 +372,6 @@ public class chatActivity extends AppCompatActivity {
         btnEmoji = findViewById(R.id.btnEmoji);
         contenedorBotonEnviar = findViewById(R.id.contenedorBotonEnviar);
         btnBack = findViewById(R.id.btnBack);
-        layoutReplyPreview = findViewById(R.id.layoutReplyPreview);
-        tvReplyPreview = findViewById(R.id.tvReplyPreview);
-        imgReplyPreview = findViewById(R.id.imgReplyPreview);
-        btnCerrarReply = findViewById(R.id.btnCerrarReply);
 
     }
     private void configurarRecyclerView() {
@@ -510,102 +379,46 @@ public class chatActivity extends AppCompatActivity {
         mensajeAdapter = new MensajeAdapter(this, listaMensajes, false);
         recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
         recyclerMensajes.setAdapter(mensajeAdapter);
-
-        mensajeAdapter.setOnMensajeLongClickListener(mensaje -> {
-            layoutReplyPreview.setVisibility(View.VISIBLE);
-
-            if (mensaje.getMensaje() != null && !mensaje.getMensaje().isEmpty()) {
-                mensajeRespondido = mensaje.getMensaje();
-                tipoMensajeRespondido = "text";
-                urlRespuesta = null;
-                duracionRespuesta = null;
-                tvReplyPreview.setText("↪️ " + mensaje.getMensaje());
-
-            } else if (mensaje.getImageUrl() != null && !mensaje.getImageUrl().isEmpty()) {
-                mensajeRespondido = "📷 Imagen";
-                tipoMensajeRespondido = "image";
-                urlRespuesta = mensaje.getImageUrl();
-                duracionRespuesta = null;
-                tvReplyPreview.setText("📷 Imagen");
-
-            } else if (mensaje.getAudioUrl() != null && !mensaje.getAudioUrl().isEmpty()) {
-                mensajeRespondido = "🎤 Audio";
-                tipoMensajeRespondido = "audio";
-                urlRespuesta = mensaje.getAudioUrl();
-                duracionRespuesta = mensaje.getDuracion();
-                String duracion = mensaje.getDuracion() != null ? mensaje.getDuracion() : "0:00";
-                tvReplyPreview.setText("🎤 Audio (" + duracion + ")");
-
-            } else {
-                mensajeRespondido = "(mensaje vacío)";
-                tipoMensajeRespondido = "text";
-                urlRespuesta = null;
-                duracionRespuesta = null;
-                tvReplyPreview.setText("↪️ (mensaje)");
-            }
-        });
-
-        // Botón para cerrar la vista previa de respuesta
-        btnCerrarReply.setOnClickListener(v -> {
-            layoutReplyPreview.setVisibility(View.GONE);
-            mensajeRespondido = null;
-            tipoMensajeRespondido = null;
-            urlRespuesta = null;
-            duracionRespuesta = null;
-        });
     }
-
-
-
     private void enviarMensaje() {
-        String texto = editMensaje.getText().toString().trim();
-        if (texto.isEmpty()) {
+        String mensajeTexto = editMensaje.getText().toString().trim();
+        if (mensajeTexto.isEmpty()) {
             showToast("Escribe un mensaje primero");
             return;
         }
-
-        Map<String, Object> messageData = new HashMap<>();
-        messageData.put("chat_id", chatId);
-        messageData.put("mensaje", texto);
-        messageData.put("usuario_id", currentUserId);
-        messageData.put("fecha_creado", FieldValue.serverTimestamp());
-
-        if (tipoMensajeRespondido != null) {
-            messageData.put("tipo_respuesta", tipoMensajeRespondido);
-            messageData.put("contenido_respuesta", mensajeRespondido);
-            messageData.put("url_respuesta", urlRespuesta);
-            messageData.put("duracion_respuesta", duracionRespuesta);
-        }
-
-        db.collection("notificacion").add(messageData)
-                .addOnSuccessListener(documentReference -> {
-                    Map<String, Object> updateChat = new HashMap<>();
-                    updateChat.put("ultimo_mensaje", texto);
-                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
-                    db.collection("chats").document(chatId).update(updateChat);
-                });
-
-        listaMensajes.add(new MensajeModel(texto, true, new Date()));
+        listaMensajes.add(new MensajeModel(mensajeTexto, true, new Date()));
         mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
         recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
-
+        checkOrCreateChatAndSendMessage(mensajeTexto);
         editMensaje.setText("");
-        mensajeRespondido = null;
-        tipoMensajeRespondido = null;
-        layoutReplyPreview.setVisibility(View.GONE);
     }
     private void checkOrCreateChatAndSendMessage(String mensajeTexto) {
         db.collection("chats").document(chatId)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (!documentSnapshot.exists()) {
-                        crearChatIndividual(() -> guardarMensajeEnNotificacion(mensajeTexto));
+                        crearChatIndividual(() -> ControladorNotificaciones.enviarMensaje(
+                                chatActivity.this,
+                                chatId,
+                                mensajeTexto,
+                                currentUserId,
+                                receiverId,
+                                nombreActualUsuario
+                        ));
                     } else {
-                        guardarMensajeEnNotificacion(mensajeTexto);
+                        ControladorNotificaciones.enviarMensaje(
+                                chatActivity.this,
+                                chatId,
+                                mensajeTexto,
+                                currentUserId,
+                                receiverId,
+                                nombreActualUsuario
+                        );
                     }
                 })
                 .addOnFailureListener(e -> showToast("Error al consultar el chat"));
     }
+
     private void crearChatIndividual(Runnable callback) {
         Map<String, Object> chatData = new HashMap<>();
         chatData.put("tipo_chat", TIPO_CHAT_INDIVIDUAL_ID);
@@ -616,43 +429,6 @@ public class chatActivity extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> callback.run())
                 .addOnFailureListener(e -> showToast("Error al crear el chat individual"));
     }
-    private void guardarMensajeEnNotificacion(String mensajeTexto) {
-        Map<String, Object> messageData = new HashMap<>();
-        messageData.put("chat_id", chatId);
-        messageData.put("mensaje", mensajeTexto);
-        messageData.put("usuario_id", currentUserId);
-        messageData.put("fecha_creado", FieldValue.serverTimestamp());
-
-        db.collection("notificacion").add(messageData)
-                .addOnSuccessListener(documentReference -> {
-                    Map<String, Object> updateChat = new HashMap<>();
-                    updateChat.put("ultimo_mensaje", mensajeTexto);
-                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
-
-                    db.collection("chats").document(chatId).update(updateChat);
-                })
-                .addOnFailureListener(e -> showToast("Error al enviar el mensaje"));
-    }
-
-    private void guardarMensajeAudio(String audioUrl, String duracion) {
-        Map<String, Object> mensajeData = new HashMap<>();
-        mensajeData.put("chat_id", chatId);
-        mensajeData.put("audio_url", audioUrl);
-        mensajeData.put("duracion", duracion);
-        mensajeData.put("usuario_id", currentUserId);
-        mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
-
-        db.collection("notificacion").add(mensajeData)
-                .addOnSuccessListener(documentReference -> {
-                    Map<String, Object> updateChat = new HashMap<>();
-                    updateChat.put("ultimo_mensaje", "🎤 Audio");
-                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
-
-                    db.collection("chats").document(chatId).update(updateChat);
-                })
-                .addOnFailureListener(e -> showToast("Error al guardar audio"));
-    }
-
     private void loadMessages() {
         mensajesListener = db.collection("notificacion")
                 .whereEqualTo("chat_id", chatId)
@@ -670,21 +446,16 @@ public class chatActivity extends AppCompatActivity {
                             Date fecha = doc.getDate("fecha_creado");
                             if (usuarioId == null) continue;
                             boolean esEnviado = usuarioId.equals(currentUserId);
-
-                            String tipo = doc.getString("tipo");            // “text”, “image” o “audio”
+                            String tipo = doc.getString("tipo");
                             if ("image".equals(tipo)) {
-                                // Mensaje de imagen
                                 String imageUrl = doc.getString("image_url");
-                                listaMensajes.add(new MensajeModel(imageUrl, esEnviado, true, fecha));
-                            }
-                            else {
+                                listaMensajes.add(new MensajeModel(imageUrl, esEnviado, fecha, true));
+                            } else {
                                 String audioUrl = doc.getString("audio_url");
                                 String duracion = doc.getString("duracion");
                                 if (audioUrl != null && duracion != null) {
-                                    // Mensaje de audio
                                     listaMensajes.add(new MensajeModel(audioUrl, duracion, esEnviado, fecha));
                                 } else {
-                                    // Mensaje de texto
                                     String mensaje = doc.getString("mensaje");
                                     listaMensajes.add(new MensajeModel(mensaje, esEnviado, fecha));
                                 }
@@ -697,148 +468,6 @@ public class chatActivity extends AppCompatActivity {
                     }
                 });
     }
-
-    private void uploadImageToFirebase(Uri uri) {
-        if (chatId == null || chatId.isEmpty()) {
-            Toast.makeText(this, "ID del chat inválido", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Determinamos el URI final a subir
-        Uri uploadUri = uri;
-        if ("com.google.android.apps.photos.contentprovider".equals(uri.getAuthority())) {
-            // Copiamos a un archivo temporal
-            try {
-                InputStream is = getContentResolver().openInputStream(uri);
-                File cacheFile = new File(getCacheDir(), "upload_" + UUID.randomUUID() + ".jpg");
-                FileOutputStream fos = new FileOutputStream(cacheFile);
-                byte[] buf = new byte[8192];
-                int len;
-                while ((len = is.read(buf)) > 0) {
-                    fos.write(buf, 0, len);
-                }
-                is.close();
-                fos.close();
-                uploadUri = Uri.fromFile(cacheFile);
-            } catch (Exception e) {
-                e.printStackTrace();
-                Toast.makeText(this, "Error preparando imagen: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                return;
-            }
-        }
-
-        // Llamamos al método que hace la subida real
-        performImageUpload(uploadUri);
-    }
-
-    private void saveImageMessage(String imageUrl) {
-        // Creamos el modelo para el adaptador (opcional si no lo usas aquí)
-        MensajeModel mensaje = new MensajeModel(imageUrl, true, true, new Date());
-
-        // Preparamos los datos para Firestore
-        Map<String, Object> data = new HashMap<>();
-        data.put("chat_id", chatId);
-        data.put("tipo", "image");
-        data.put("image_url", imageUrl);
-        data.put("usuario_id", currentUserId);
-        data.put("nombre_usuario", nombreActualUsuario);
-        data.put("fecha_creado", FieldValue.serverTimestamp());
-
-        // Lo guardamos en la colección "notificacion"
-        db.collection("notificacion")
-                .add(data)
-                .addOnSuccessListener(docRef -> {
-                    // (Opcional) Actualizar último mensaje en chats
-                    Map<String, Object> update = new HashMap<>();
-                    update.put("ultimo_mensaje", "[Imagen]");
-                    update.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
-                    db.collection("chats").document(chatId).update(update);
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Error guardando mensaje de imagen", Toast.LENGTH_SHORT).show();
-                });
-    }
-
-    private void performImageUpload(Uri uploadUri) {
-        File file = new File(uploadUri.getPath());
-        RequestBody req = RequestBody.create(MediaType.parse("image/jpeg"), file);
-        String fileName = UUID.randomUUID().toString() + ".jpg";
-        MultipartBody.Part part = MultipartBody.Part.createFormData("file", fileName, req);
-
-        supabase.uploadFile(SUPABASE_TOKEN, fileName, part)
-                .enqueue(new Callback<ResponseBody>() {
-                    @Override
-                    public void onResponse(Call<ResponseBody> c, Response<ResponseBody> r) {
-                        if (r.isSuccessful()) {
-                            String imageUrl = SUPABASE_URL
-                                    + "storage/v1/object/public/minechap/"
-                                    + fileName;
-                            saveImageMessage(imageUrl);
-                        } else {
-                            Toast.makeText(chatActivity.this,
-                                    "Error subiendo imagen: " + r.code(),
-                                    Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                    @Override
-                    public void onFailure(Call<ResponseBody> c, Throwable t) {
-                        Toast.makeText(chatActivity.this,
-                                "Fallo al conectar con Supabase: " + t.getMessage(),
-                                Toast.LENGTH_SHORT).show();
-                    }
-                });
-    }
-    private long getDuracionAudio(String filePath) {
-        try {
-            MediaPlayer player = new MediaPlayer();
-            player.setDataSource(filePath);
-            player.prepare();
-            int duration = player.getDuration();
-            player.release();
-            return duration;
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-    private String convertirDuracion(long milisegundos) {
-        int segundos = (int) (milisegundos / 1000);
-        int minutos = segundos / 60;
-        segundos %= 60;
-        return String.format(Locale.getDefault(), "%d:%02d", minutos, segundos);
-    }
-    private void subirAudioASupabase(File audioFile) {
-        String supabaseUrl = "https://vlfuswavnjmkucepynxb.supabase.co";
-        String supabaseBearerToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
-
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(supabaseUrl)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-        SupabaseService service = retrofit.create(SupabaseService.class);
-        RequestBody requestBody = RequestBody.create(MediaType.parse("audio/3gp"), audioFile);
-        MultipartBody.Part part = MultipartBody.Part.createFormData("file", audioFile.getName(), requestBody);
-        Call<ResponseBody> call = service.uploadFile(supabaseBearerToken, audioFile.getName(), part);
-        call.enqueue(new Callback<ResponseBody>() {
-            @Override
-            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                if (response.isSuccessful()) {
-
-                    String audioUrl = "https://vlfuswavnjmkucepynxb.supabase.co/storage/v1/object/public/minechap/" + audioFile.getName();
-                    long duracion = getDuracionAudio(audioFile.getAbsolutePath());
-                    String duracionTexto = convertirDuracion(duracion);
-                    guardarMensajeAudio(audioUrl, duracionTexto);
-                } else {
-                    runOnUiThread(() -> showToast("Error al subir audio: " + response.code()));
-                }
-            }
-            @Override
-            public void onFailure(Call<ResponseBody> call, Throwable t) {
-                t.printStackTrace();
-                runOnUiThread(() -> showToast("Fallo al conectar con Supabase"));
-            }
-        });
-    }
-
 
     private void loadLastMessageStatus() {
         db.collection("notificacion")
@@ -867,28 +496,6 @@ public class chatActivity extends AppCompatActivity {
     }
     private void showToast(String message) {
         Toast.makeText(chatActivity.this, message, Toast.LENGTH_SHORT).show();
-    }
-    private File descargarAudioDesdeUrl(String url, String nombreArchivo) throws IOException {
-        URL audioUrl = new URL(url);
-        HttpURLConnection connection = (HttpURLConnection) audioUrl.openConnection();
-        connection.connect();
-        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-            throw new IOException("Error al descargar el archivo: " + connection.getResponseMessage());
-        }
-        InputStream inputStream = connection.getInputStream();
-        File archivo = new File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), nombreArchivo);
-        FileOutputStream outputStream = new FileOutputStream(archivo);
-
-        byte[] buffer = new byte[4096];
-        int bytesRead;
-        while ((bytesRead = inputStream.read(buffer)) != -1) {
-            outputStream.write(buffer, 0, bytesRead);
-        }
-        outputStream.close();
-        inputStream.close();
-        connection.disconnect();
-
-        return archivo;
     }
     @Override
     protected void onDestroy() {
