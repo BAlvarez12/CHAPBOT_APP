@@ -189,7 +189,6 @@ public class GrupoActivity extends AppCompatActivity {
     }
 
 
-
     private void confirmarSalidaGrupo() {
         new AlertDialog.Builder(this)
                 .setTitle("Salir del grupo")
@@ -298,6 +297,7 @@ public class GrupoActivity extends AppCompatActivity {
                     showToast("Error subiendo imagen: " + r.code());
                 }
             }
+
             @Override
             public void onFailure(Call<ResponseBody> c, Throwable t) {
                 showToast("Fallo al conectar: " + t.getMessage());
@@ -388,8 +388,12 @@ public class GrupoActivity extends AppCompatActivity {
                 if (s.toString().trim().isEmpty()) mostrarBotonAudio();
                 else mostrarBotonEnviar();
             }
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            public void afterTextChanged(Editable s) {}
+
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            public void afterTextChanged(Editable s) {
+            }
         });
     }
 

@@ -72,6 +72,10 @@ import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.http.*;
+import android.widget.LinearLayout;
+import com.bumptech.glide.Glide;
+import android.view.View;
+
 public class chatActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_INDIVIDUAL_ID = "NCm3QCIsKw8MjjHycvm5";
     private TextView tvGrabando;
@@ -99,6 +103,14 @@ public class chatActivity extends AppCompatActivity {
             "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsZnVzd2F2bmpta3VjZXB5bnhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MzkxMzMsImV4cCI6MjA1OTMxNTEzM30.xenpXe10Op6aADd2MHHKQcBAH0GoiVyvKdG3i_8w65k";
     private static final String SUPABASE_URL   = "https://vlfuswavnjmkucepynxb.supabase.co/";
     private static final int RC_PICK_IMAGE = 300;
+    private LinearLayout layoutReplyPreview;
+    private TextView tvReplyPreview;
+    private ImageView imgReplyPreview;
+    private ImageView btnCerrarReply;
+    private String mensajeRespondido = null;
+    private String tipoMensajeRespondido = null;
+    private String urlRespuesta = null;
+    private String duracionRespuesta = null;
 
 
     @Override
@@ -109,13 +121,15 @@ public class chatActivity extends AppCompatActivity {
                 .baseUrl(SUPABASE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
-                .create(SupabaseService.class);;
+                .create(SupabaseService.class);
+
 
         permisoToastMostrado = getSharedPreferences("PreferenciasMineChap", MODE_PRIVATE)
                 .getBoolean("permiso_audio_mostrado", false);
 
         inicializarComponentes();
-        configurarRecyclerView();
+        configurarRecyclerView(); // Aquí ya incluye el listener para mensajeRespondido
+
         db = FirebaseFirestore.getInstance();
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         receiverId = getIntent().getStringExtra("USER_ID");
@@ -130,7 +144,6 @@ public class chatActivity extends AppCompatActivity {
 
         tvNombreUsuario.setText(!TextUtils.isEmpty(nombreUsuario) ? nombreUsuario : "Chat");
 
-        // Cargar foto de perfil desde Base64
         cargarFotoPerfil(receiverId);
 
         if (currentUserId.compareTo(receiverId) < 0) {
@@ -143,7 +156,6 @@ public class chatActivity extends AppCompatActivity {
 
         chatId = generarChatId(usuarioA, usuarioB);
 
-        // Remover UID de eliminado_por si está presente
         db.collection("chats").document(chatId)
                 .get()
                 .addOnSuccessListener(doc -> {
@@ -153,7 +165,6 @@ public class chatActivity extends AppCompatActivity {
                             db.collection("chats").document(chatId)
                                     .update("eliminado_por", FieldValue.arrayRemove(currentUserId))
                                     .addOnSuccessListener(aVoid -> {
-                                        // Cargamos mensajes después de restaurar chat
                                         loadMessages();
                                         loadLastMessageStatus();
                                     });
@@ -178,7 +189,7 @@ public class chatActivity extends AppCompatActivity {
                 case MotionEvent.ACTION_DOWN:
                     if (!tienePermisosDeAudio()) {
                         requestPermissions(new String[]{
-                                android.Manifest.permission.RECORD_AUDIO
+                                Manifest.permission.RECORD_AUDIO
                         }, 200);
                         return false;
                     }
@@ -201,13 +212,13 @@ public class chatActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> onBackPressed());
 
-        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
-                checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
-                checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
+                checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
+                checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{
-                    android.Manifest.permission.RECORD_AUDIO,
-                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    android.Manifest.permission.READ_EXTERNAL_STORAGE
+                    Manifest.permission.RECORD_AUDIO,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
             }, 200);
         }
 
@@ -224,24 +235,19 @@ public class chatActivity extends AppCompatActivity {
         );
 
         btnEmoji.setOnClickListener(v -> {
-            // 1) elegimos qué permiso pedir según versión Android
             String permisoGaleria = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                     ? Manifest.permission.READ_MEDIA_IMAGES
                     : Manifest.permission.READ_EXTERNAL_STORAGE;
 
-            // 2) chequeamos si ya está concedido
             if (ContextCompat.checkSelfPermission(this, permisoGaleria)
                     != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{ permisoGaleria }, RC_PICK_IMAGE);
             } else {
-                // 3) si ya está, abrimos la galería
                 Intent intent = new Intent(Intent.ACTION_PICK);
                 intent.setType("image/*");
                 imagePickerLauncher.launch(intent);
             }
         });
-
-
 
         editMensaje.addTextChangedListener(new TextWatcher() {
             @Override
@@ -260,6 +266,7 @@ public class chatActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {}
         });
     }
+
 
     private void cargarFotoPerfil(String userId) {
         db.collection("usuarios").document(userId)
@@ -462,6 +469,23 @@ public class chatActivity extends AppCompatActivity {
                     }).start();
         }
     }
+    private void mostrarVistaPreviaRespuesta() {
+        layoutReplyPreview.setVisibility(View.VISIBLE);
+        tvReplyPreview.setVisibility(View.VISIBLE);
+        imgReplyPreview.setVisibility(View.GONE);
+
+        if ("text".equals(tipoMensajeRespondido)) {
+            tvReplyPreview.setText("↪️ " + mensajeRespondido);
+        } else if ("image".equals(tipoMensajeRespondido)) {
+            tvReplyPreview.setText("↪️ Imagen");
+            imgReplyPreview.setVisibility(View.VISIBLE);
+            Glide.with(this).load(urlRespuesta).into(imgReplyPreview);
+        } else if ("audio".equals(tipoMensajeRespondido)) {
+            tvReplyPreview.setText("↪️ Audio" + (duracionRespuesta != null ? " (" + duracionRespuesta + ")" : ""));
+        } else {
+            layoutReplyPreview.setVisibility(View.GONE);
+        }
+    }
 
     private void inicializarComponentes() {
         tvNombreUsuario = findViewById(R.id.tvNombreUsuario);
@@ -475,6 +499,10 @@ public class chatActivity extends AppCompatActivity {
         btnEmoji = findViewById(R.id.btnEmoji);
         contenedorBotonEnviar = findViewById(R.id.contenedorBotonEnviar);
         btnBack = findViewById(R.id.btnBack);
+        layoutReplyPreview = findViewById(R.id.layoutReplyPreview);
+        tvReplyPreview = findViewById(R.id.tvReplyPreview);
+        imgReplyPreview = findViewById(R.id.imgReplyPreview);
+        btnCerrarReply = findViewById(R.id.btnCerrarReply);
 
     }
     private void configurarRecyclerView() {
@@ -482,18 +510,89 @@ public class chatActivity extends AppCompatActivity {
         mensajeAdapter = new MensajeAdapter(this, listaMensajes, false);
         recyclerMensajes.setLayoutManager(new LinearLayoutManager(this));
         recyclerMensajes.setAdapter(mensajeAdapter);
+
+        mensajeAdapter.setOnMensajeLongClickListener(mensaje -> {
+            layoutReplyPreview.setVisibility(View.VISIBLE);
+
+            if (mensaje.getMensaje() != null && !mensaje.getMensaje().isEmpty()) {
+                mensajeRespondido = mensaje.getMensaje();
+                tipoMensajeRespondido = "text";
+                urlRespuesta = null;
+                duracionRespuesta = null;
+                tvReplyPreview.setText("↪️ " + mensaje.getMensaje());
+
+            } else if (mensaje.getImageUrl() != null && !mensaje.getImageUrl().isEmpty()) {
+                mensajeRespondido = "📷 Imagen";
+                tipoMensajeRespondido = "image";
+                urlRespuesta = mensaje.getImageUrl();
+                duracionRespuesta = null;
+                tvReplyPreview.setText("📷 Imagen");
+
+            } else if (mensaje.getAudioUrl() != null && !mensaje.getAudioUrl().isEmpty()) {
+                mensajeRespondido = "🎤 Audio";
+                tipoMensajeRespondido = "audio";
+                urlRespuesta = mensaje.getAudioUrl();
+                duracionRespuesta = mensaje.getDuracion();
+                String duracion = mensaje.getDuracion() != null ? mensaje.getDuracion() : "0:00";
+                tvReplyPreview.setText("🎤 Audio (" + duracion + ")");
+
+            } else {
+                mensajeRespondido = "(mensaje vacío)";
+                tipoMensajeRespondido = "text";
+                urlRespuesta = null;
+                duracionRespuesta = null;
+                tvReplyPreview.setText("↪️ (mensaje)");
+            }
+        });
+
+        // Botón para cerrar la vista previa de respuesta
+        btnCerrarReply.setOnClickListener(v -> {
+            layoutReplyPreview.setVisibility(View.GONE);
+            mensajeRespondido = null;
+            tipoMensajeRespondido = null;
+            urlRespuesta = null;
+            duracionRespuesta = null;
+        });
     }
+
+
+
     private void enviarMensaje() {
-        String mensajeTexto = editMensaje.getText().toString().trim();
-        if (mensajeTexto.isEmpty()) {
+        String texto = editMensaje.getText().toString().trim();
+        if (texto.isEmpty()) {
             showToast("Escribe un mensaje primero");
             return;
         }
-        listaMensajes.add(new MensajeModel(mensajeTexto, true, new Date()));
+
+        Map<String, Object> messageData = new HashMap<>();
+        messageData.put("chat_id", chatId);
+        messageData.put("mensaje", texto);
+        messageData.put("usuario_id", currentUserId);
+        messageData.put("fecha_creado", FieldValue.serverTimestamp());
+
+        if (tipoMensajeRespondido != null) {
+            messageData.put("tipo_respuesta", tipoMensajeRespondido);
+            messageData.put("contenido_respuesta", mensajeRespondido);
+            messageData.put("url_respuesta", urlRespuesta);
+            messageData.put("duracion_respuesta", duracionRespuesta);
+        }
+
+        db.collection("notificacion").add(messageData)
+                .addOnSuccessListener(documentReference -> {
+                    Map<String, Object> updateChat = new HashMap<>();
+                    updateChat.put("ultimo_mensaje", texto);
+                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+                    db.collection("chats").document(chatId).update(updateChat);
+                });
+
+        listaMensajes.add(new MensajeModel(texto, true, new Date()));
         mensajeAdapter.notifyItemInserted(listaMensajes.size() - 1);
         recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
-        checkOrCreateChatAndSendMessage(mensajeTexto);
+
         editMensaje.setText("");
+        mensajeRespondido = null;
+        tipoMensajeRespondido = null;
+        layoutReplyPreview.setVisibility(View.GONE);
     }
     private void checkOrCreateChatAndSendMessage(String mensajeTexto) {
         db.collection("chats").document(chatId)

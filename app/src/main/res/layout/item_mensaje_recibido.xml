@@ -5,6 +5,7 @@
     android:orientation="horizontal"
     android:padding="8dp"
     android:gravity="start">
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -15,6 +16,7 @@
         android:layout_marginBottom="8dp"
         android:layout_marginStart="4dp"
         android:layout_marginEnd="48dp">
+
         <TextView
             android:id="@+id/tvNombreUsuarioRecibido"
             android:layout_width="wrap_content"
@@ -23,6 +25,35 @@
             android:textSize="12sp"
             android:textColor="@android:color/black"
             android:visibility="gone" />
+
+        <!-- Vista previa de mensaje respondido -->
+        <LinearLayout
+            android:id="@+id/layoutReplyRecibido"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@drawable/fondo_respuesta"
+            android:padding="8dp"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/imgReplyRecibido"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:scaleType="centerCrop"
+                android:layout_marginEnd="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvReplyTextRecibido"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#333"
+                android:textSize="14sp" />
+        </LinearLayout>
+
         <ImageView
             android:id="@+id/imgMensajeRecibido"
             android:layout_width="200dp"
@@ -32,6 +63,7 @@
             android:clipToOutline="true"
             android:visibility="gone"
             android:layout_marginTop="4dp" />
+
         <TextView
             android:id="@+id/tvMensajeRecibido"
             android:layout_width="wrap_content"
@@ -39,7 +71,8 @@
             android:text="Mensaje recibido"
             android:textSize="16sp"
             android:textColor="@android:color/black"
-            android:layout_marginTop="4dp"/>
+            android:layout_marginTop="4dp" />
+
         <TextView
             android:id="@+id/tvHoraMensajeRecibido"
             android:layout_width="wrap_content"
@@ -49,6 +82,7 @@
             android:textColor="#757575"
             android:layout_gravity="end"
             android:layout_marginTop="4dp"
-            android:paddingTop="2dp"/>
+            android:paddingTop="2dp" />
     </LinearLayout>
 </LinearLayout>
+

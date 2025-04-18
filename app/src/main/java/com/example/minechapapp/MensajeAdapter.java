@@ -10,6 +10,7 @@ import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -39,6 +40,16 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private List<MensajeModel> listaMensajes;
     private boolean esGrupal;
     private Context context;
+
+    private OnMensajeLongClickListener listener;
+
+    public interface OnMensajeLongClickListener {
+        void onMensajeLongClick(MensajeModel mensaje);
+    }
+
+    public void setOnMensajeLongClickListener(OnMensajeLongClickListener listener) {
+        this.listener = listener;
+    }
 
     public MensajeAdapter(Context context, List<MensajeModel> listaMensajes, boolean esGrupal) {
         this.context = context;
@@ -78,11 +89,10 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         } else if (viewType == TIPO_AUDIO) {
             View view = inflater.inflate(R.layout.item_mensaje_audio, parent, false);
             return new AudioViewHolder(view);
-        } else if (viewType == TIPO_SISTEMA) {
+        } else {
             View view = inflater.inflate(R.layout.item_mensaje_sistema, parent, false);
             return new SystemViewHolder(view);
         }
-        return null;
     }
 
     @Override
@@ -93,57 +103,72 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         String hora = mensaje.getFecha() != null ? sdf.format(mensaje.getFecha()) : "";
 
         if (holder instanceof SentViewHolder) {
-            SentViewHolder sentHolder = (SentViewHolder) holder;
+            SentViewHolder h = (SentViewHolder) holder;
 
             if (esGrupal && mensaje.getNombreUsuario() != null) {
-                sentHolder.tvNombreUsuario.setVisibility(View.VISIBLE);
-                sentHolder.tvNombreUsuario.setText("Tú");
+                h.tvNombreUsuario.setVisibility(View.VISIBLE);
+                h.tvNombreUsuario.setText("Tú");
             } else {
-                sentHolder.tvNombreUsuario.setVisibility(View.GONE);
+                h.tvNombreUsuario.setVisibility(View.GONE);
             }
 
             if (mensaje.tieneImagen()) {
-                sentHolder.tvMensaje.setVisibility(View.GONE);
-                sentHolder.imgMensaje.setVisibility(View.VISIBLE);
-                Glide.with(sentHolder.itemView.getContext())
-                        .load(mensaje.getImageUrl())
-                        .into(sentHolder.imgMensaje);
+                h.tvMensaje.setVisibility(View.GONE);
+                h.imgMensaje.setVisibility(View.VISIBLE);
+                Glide.with(context).load(mensaje.getImageUrl()).into(h.imgMensaje);
             } else {
-                sentHolder.imgMensaje.setVisibility(View.GONE);
-                sentHolder.tvMensaje.setVisibility(View.VISIBLE);
-                sentHolder.tvMensaje.setText(mensaje.getMensaje());
+                h.imgMensaje.setVisibility(View.GONE);
+                h.tvMensaje.setVisibility(View.VISIBLE);
+                h.tvMensaje.setText(mensaje.getMensaje());
             }
-            sentHolder.tvHora.setText(hora);
+
+            h.tvHora.setText(hora);
+            mostrarVistaPreviaRespuesta(h.layoutReply, h.tvReplyText, h.imgReply, mensaje);
+
+            holder.itemView.setOnLongClickListener(v -> {
+                if (listener != null) {
+                    listener.onMensajeLongClick(mensaje);
+                    return true;
+                }
+                return false;
+            });
 
         } else if (holder instanceof ReceivedViewHolder) {
-            ReceivedViewHolder receivedHolder = (ReceivedViewHolder) holder;
+            ReceivedViewHolder h = (ReceivedViewHolder) holder;
 
             if (esGrupal && mensaje.getNombreUsuario() != null) {
-                receivedHolder.tvNombreUsuario.setVisibility(View.VISIBLE);
-                receivedHolder.tvNombreUsuario.setText(mensaje.getNombreUsuario());
+                h.tvNombreUsuario.setVisibility(View.VISIBLE);
+                h.tvNombreUsuario.setText(mensaje.getNombreUsuario());
             } else {
-                receivedHolder.tvNombreUsuario.setVisibility(View.GONE);
+                h.tvNombreUsuario.setVisibility(View.GONE);
             }
 
             if (mensaje.tieneImagen()) {
-                receivedHolder.tvMensaje.setVisibility(View.GONE);
-                receivedHolder.imgMensaje.setVisibility(View.VISIBLE);
-                Glide.with(receivedHolder.itemView.getContext())
-                        .load(mensaje.getImageUrl())
-                        .into(receivedHolder.imgMensaje);
+                h.tvMensaje.setVisibility(View.GONE);
+                h.imgMensaje.setVisibility(View.VISIBLE);
+                Glide.with(context).load(mensaje.getImageUrl()).into(h.imgMensaje);
             } else {
-                receivedHolder.imgMensaje.setVisibility(View.GONE);
-                receivedHolder.tvMensaje.setVisibility(View.VISIBLE);
-                receivedHolder.tvMensaje.setText(mensaje.getMensaje());
+                h.imgMensaje.setVisibility(View.GONE);
+                h.tvMensaje.setVisibility(View.VISIBLE);
+                h.tvMensaje.setText(mensaje.getMensaje());
             }
-            receivedHolder.tvHora.setText(hora);
+
+            h.tvHora.setText(hora);
+            mostrarVistaPreviaRespuesta(h.layoutReply, h.tvReplyText, h.imgReply, mensaje);
+
+            holder.itemView.setOnLongClickListener(v -> {
+                if (listener != null) {
+                    listener.onMensajeLongClick(mensaje);
+                    return true;
+                }
+                return false;
+            });
 
         } else if (holder instanceof AudioViewHolder) {
-            AudioViewHolder audioHolder = (AudioViewHolder) holder;
-            Context context = holder.itemView.getContext();
+            AudioViewHolder h = (AudioViewHolder) holder;
             String duracion = mensaje.getDuracion() != null ? mensaje.getDuracion() : "0:00";
-            audioHolder.tvDuracionAudio.setText(duracion);
-            audioHolder.btnPlayAudio.setOnClickListener(v -> {
+            h.tvDuracionAudio.setText(duracion);
+            h.btnPlayAudio.setOnClickListener(v -> {
                 new Thread(() -> {
                     try {
                         File audioLocal = descargarAudioDesdeUrl(mensaje.getAudioUrl(), "AUDIO_" + System.currentTimeMillis() + ".3gp");
@@ -154,8 +179,7 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     } catch (IOException e) {
                         e.printStackTrace();
                         ((Activity) context).runOnUiThread(() ->
-                                Toast.makeText(context, "Error al reproducir audio", Toast.LENGTH_SHORT).show()
-                        );
+                                Toast.makeText(context, "Error al reproducir audio", Toast.LENGTH_SHORT).show());
                     }
                 }).start();
             });
@@ -170,14 +194,31 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         holder.itemView.startAnimation(anim);
     }
 
-    // ViewHolder para mensajes del sistema
-    public static class SystemViewHolder extends RecyclerView.ViewHolder {
-        TextView tvMensajeSistema, tvHoraSistema;
+    private void mostrarVistaPreviaRespuesta(LinearLayout layout, TextView tvTexto, ImageView img, MensajeModel mensaje) {
+        if (mensaje.getTipoRespuesta() == null) {
+            layout.setVisibility(View.GONE);
+            return;
+        }
 
-        public SystemViewHolder(@NonNull View itemView) {
-            super(itemView);
-            tvMensajeSistema = itemView.findViewById(R.id.tvMensajeSistema);
-            tvHoraSistema = itemView.findViewById(R.id.tvHoraMensajeSistema);
+        layout.setVisibility(View.VISIBLE);
+        tvTexto.setVisibility(View.VISIBLE);
+        img.setVisibility(View.GONE);
+
+        switch (mensaje.getTipoRespuesta()) {
+            case "text":
+                tvTexto.setText("↪️ " + mensaje.getContenidoRespuesta());
+                break;
+            case "image":
+                tvTexto.setText("📷 Imagen");
+                img.setVisibility(View.VISIBLE);
+                Glide.with(context).load(mensaje.getUrlRespuesta()).into(img);
+                break;
+            case "audio":
+                String dur = mensaje.getDuracionRespuesta() != null ? mensaje.getDuracionRespuesta() : "";
+                tvTexto.setText("🎤 Audio " + dur);
+                break;
+            default:
+                layout.setVisibility(View.GONE);
         }
     }
 
@@ -199,6 +240,7 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
             throw new IOException("Error al descargar archivo: " + connection.getResponseMessage());
         }
+
         InputStream input = connection.getInputStream();
         File outputFile = new File(context.getExternalFilesDir(null), nombreArchivo);
         FileOutputStream output = new FileOutputStream(outputFile);
@@ -208,6 +250,7 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         while ((bytesRead = input.read(buffer)) != -1) {
             output.write(buffer, 0, bytesRead);
         }
+
         output.close();
         input.close();
         connection.disconnect();
@@ -215,8 +258,9 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     public static class SentViewHolder extends RecyclerView.ViewHolder {
-        TextView tvMensaje, tvNombreUsuario, tvHora;
-        ImageView imgMensaje;
+        TextView tvMensaje, tvNombreUsuario, tvHora, tvReplyText;
+        ImageView imgMensaje, imgReply;
+        LinearLayout layoutReply;
 
         public SentViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -224,12 +268,16 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             imgMensaje = itemView.findViewById(R.id.imgMensajeEnviado);
             tvNombreUsuario = itemView.findViewById(R.id.tvNombreUsuarioEnviado);
             tvHora = itemView.findViewById(R.id.tvHoraMensajeEnviado);
+            tvReplyText = itemView.findViewById(R.id.tvReplyTextEnviado);
+            imgReply = itemView.findViewById(R.id.imgReplyEnviado);
+            layoutReply = itemView.findViewById(R.id.layoutReplyEnviado);
         }
     }
 
     public static class ReceivedViewHolder extends RecyclerView.ViewHolder {
-        TextView tvMensaje, tvNombreUsuario, tvHora;
-        ImageView imgMensaje;
+        TextView tvMensaje, tvNombreUsuario, tvHora, tvReplyText;
+        ImageView imgMensaje, imgReply;
+        LinearLayout layoutReply;
 
         public ReceivedViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -237,6 +285,20 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             tvNombreUsuario = itemView.findViewById(R.id.tvNombreUsuarioRecibido);
             imgMensaje = itemView.findViewById(R.id.imgMensajeRecibido);
             tvHora = itemView.findViewById(R.id.tvHoraMensajeRecibido);
+            tvReplyText = itemView.findViewById(R.id.tvReplyTextRecibido);
+            imgReply = itemView.findViewById(R.id.imgReplyRecibido);
+            layoutReply = itemView.findViewById(R.id.layoutReplyRecibido);
+        }
+    }
+
+    public static class SystemViewHolder extends RecyclerView.ViewHolder {
+        TextView tvMensajeSistema, tvHoraSistema;
+
+        public SystemViewHolder(@NonNull View itemView) {
+            super(itemView);
+            tvMensajeSistema = itemView.findViewById(R.id.tvMensajeSistema);
+            tvHoraSistema = itemView.findViewById(R.id.tvHoraMensajeSistema);
         }
     }
 }
+

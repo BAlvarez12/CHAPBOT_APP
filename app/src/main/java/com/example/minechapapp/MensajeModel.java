@@ -11,9 +11,16 @@ public class MensajeModel {
     private String audioUrl;
     private String duracion;
     private Date fecha;
-    private String tipo;  // <-- Campo para definir el tipo de mensaje: "text", "image", "audio", "system", etc.
 
-    // Constructores
+    private String tipo;  // Campo para definir el tipo de mensaje: "text", "image", "audio", "system", etc.
+
+    // Campos para respuestas
+    private String tipoRespuesta;
+    private String contenidoRespuesta;
+    private String urlRespuesta;
+    private String duracionRespuesta;
+
+    // Constructor para texto
     public MensajeModel(String mensaje, boolean enviado, Date fecha) {
         this.mensaje = mensaje;
         this.enviado = enviado;
@@ -21,6 +28,7 @@ public class MensajeModel {
         this.tipo = "text";
     }
 
+    // Constructor para imagen
     public MensajeModel(String imageUrl, boolean enviado, boolean esImagen, Date fecha) {
         this.imageUrl = imageUrl;
         this.enviado = enviado;
@@ -28,6 +36,7 @@ public class MensajeModel {
         this.tipo = "image";
     }
 
+    // Constructor con nombre para grupales
     public MensajeModel(String mensaje, boolean enviado, String nombreUsuario, Date fecha) {
         this.mensaje = mensaje;
         this.enviado = enviado;
@@ -36,6 +45,7 @@ public class MensajeModel {
         this.tipo = "text";
     }
 
+    // Constructor para audio
     public MensajeModel(String audioUrl, String duracion, boolean esEnviado, Date fecha) {
         this.audioUrl = audioUrl;
         this.duracion = duracion;
@@ -45,13 +55,17 @@ public class MensajeModel {
         this.tipo = "audio";
     }
 
-    public MensajeModel(String mensaje, boolean enviado, String nombreUsuario, Date fecha, String imageUrl) {
+    // Constructor completo con datos de respuesta
+    public MensajeModel(String mensaje, boolean enviado, Date fecha,
+                        String tipoRespuesta, String contenidoRespuesta,
+                        String urlRespuesta, String duracionRespuesta) {
         this.mensaje = mensaje;
         this.enviado = enviado;
-        this.nombreUsuario = nombreUsuario;
         this.fecha = fecha;
-        this.imageUrl = imageUrl;
-        this.tipo = "image";
+        this.tipoRespuesta = tipoRespuesta;
+        this.contenidoRespuesta = contenidoRespuesta;
+        this.urlRespuesta = urlRespuesta;
+        this.duracionRespuesta = duracionRespuesta;
     }
 
     // Constructor específico para mensajes del sistema
@@ -117,4 +131,42 @@ public class MensajeModel {
     public void setTipo(String tipo) {
         this.tipo = tipo;
     }
+
+    public String getTipoRespuesta() {
+        return tipoRespuesta;
+    }
+
+    public void setTipoRespuesta(String tipoRespuesta) {
+        this.tipoRespuesta = tipoRespuesta;
+    }
+
+    public String getContenidoRespuesta() {
+        return contenidoRespuesta;
+    }
+
+    public void setContenidoRespuesta(String contenidoRespuesta) {
+        this.contenidoRespuesta = contenidoRespuesta;
+    }
+
+    public String getUrlRespuesta() {
+        return urlRespuesta;
+    }
+
+    public void setUrlRespuesta(String urlRespuesta) {
+        this.urlRespuesta = urlRespuesta;
+    }
+
+    public String getDuracionRespuesta() {
+        return duracionRespuesta;
+    }
+
+    public void setDuracionRespuesta(String duracionRespuesta) {
+        this.duracionRespuesta = duracionRespuesta;
+    }
+
+    // NUEVO: Saber si es respuesta
+    public boolean esRespuesta() {
+        return tipoRespuesta != null && !tipoRespuesta.isEmpty();
+    }
 }
+
