@@ -2,6 +2,8 @@ package com.example.minechapapp;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.drawable.AnimatedVectorDrawable;
+import android.graphics.drawable.Drawable;
 import android.media.MediaPlayer;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +16,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -25,7 +28,6 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -37,11 +39,13 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private List<MensajeModel> listaMensajes;
     private boolean esGrupal;
     private Context context;
+
     public MensajeAdapter(Context context, List<MensajeModel> listaMensajes, boolean esGrupal) {
         this.context = context;
         this.listaMensajes = listaMensajes;
         this.esGrupal = esGrupal;
     }
+
     @Override
     public int getItemViewType(int position) {
         MensajeModel mensaje = listaMensajes.get(position);
@@ -51,6 +55,7 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             return mensaje.isEnviado() ? TIPO_ENVIADO : TIPO_RECIBIDO;
         }
     }
+
     @Override
     public int getItemCount() {
         return listaMensajes.size();
@@ -73,6 +78,7 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
         return null;
     }
+
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         MensajeModel mensaje = listaMensajes.get(position);
@@ -101,6 +107,7 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 sentHolder.tvMensaje.setText(mensaje.getMensaje());
             }
             sentHolder.tvHora.setText(hora);
+
         } else if (holder instanceof ReceivedViewHolder) {
             ReceivedViewHolder receivedHolder = (ReceivedViewHolder) holder;
 
@@ -122,11 +129,21 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 receivedHolder.tvMensaje.setText(mensaje.getMensaje());
             }
             receivedHolder.tvHora.setText(hora);
+
         } else if (holder instanceof AudioViewHolder) {
             AudioViewHolder audioHolder = (AudioViewHolder) holder;
             Context context = holder.itemView.getContext();
+
+            if (esGrupal && mensaje.getNombreUsuario() != null) {
+                audioHolder.tvNombreUsuarioAudio.setVisibility(View.VISIBLE);
+                audioHolder.tvNombreUsuarioAudio.setText(mensaje.isEnviado() ? "Tú" : mensaje.getNombreUsuario());
+            } else {
+                audioHolder.tvNombreUsuarioAudio.setVisibility(View.GONE);
+            }
+
             String duracion = mensaje.getDuracion() != null ? mensaje.getDuracion() : "0:00";
             audioHolder.tvDuracionAudio.setText(duracion);
+
             audioHolder.btnPlayAudio.setOnClickListener(v -> {
                 new Thread(() -> {
                     try {
@@ -135,6 +152,17 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         mediaPlayer.setDataSource(audioLocal.getAbsolutePath());
                         mediaPlayer.prepare();
                         mediaPlayer.start();
+
+                        ((Activity) context).runOnUiThread(() -> {
+                            audioHolder.btnPlayAudio.setImageResource(R.drawable.avd_pause_play_vector);
+                        });
+
+                        mediaPlayer.setOnCompletionListener(mp -> {
+                            ((Activity) context).runOnUiThread(() -> {
+                                audioHolder.btnPlayAudio.setImageResource(R.drawable.avd_play_pause_vector);
+                            });
+                        });
+
                     } catch (IOException e) {
                         e.printStackTrace();
                         ((Activity) context).runOnUiThread(() ->
@@ -144,18 +172,22 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 }).start();
             });
         }
+
         Animation anim = AnimationUtils.loadAnimation(holder.itemView.getContext(), R.anim.fade);
         holder.itemView.startAnimation(anim);
     }
     public static class AudioViewHolder extends RecyclerView.ViewHolder {
         ImageButton btnPlayAudio;
-        TextView tvDuracionAudio;
+        TextView tvDuracionAudio, tvNombreUsuarioAudio;
+
         public AudioViewHolder(@NonNull View itemView) {
             super(itemView);
             btnPlayAudio = itemView.findViewById(R.id.btnPlayAudio);
             tvDuracionAudio = itemView.findViewById(R.id.tvDuracionAudio);
+            tvNombreUsuarioAudio = itemView.findViewById(R.id.tvNombreUsuarioAudio);
         }
     }
+
     private File descargarAudioDesdeUrl(String url, String nombreArchivo) throws IOException {
         URL audioUrl = new URL(url);
         HttpURLConnection connection = (HttpURLConnection) audioUrl.openConnection();
@@ -177,9 +209,11 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         connection.disconnect();
         return outputFile;
     }
+
     public static class SentViewHolder extends RecyclerView.ViewHolder {
         TextView tvMensaje, tvNombreUsuario, tvHora;
         ImageView imgMensaje;
+
         public SentViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMensaje = itemView.findViewById(R.id.tvMensajeEnviado);
@@ -188,9 +222,11 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             tvHora = itemView.findViewById(R.id.tvHoraMensajeEnviado);
         }
     }
+
     public static class ReceivedViewHolder extends RecyclerView.ViewHolder {
         TextView tvMensaje, tvNombreUsuario, tvHora;
         ImageView imgMensaje;
+
         public ReceivedViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMensaje = itemView.findViewById(R.id.tvMensajeRecibido);

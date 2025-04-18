@@ -61,6 +61,9 @@ import retrofit2.http.POST;
 import retrofit2.http.Part;
 import android.Manifest;
 import android.os.Build;
+import com.example.minechapapp.ImagenChats;
+
+
 
 public class GrupoActivity extends AppCompatActivity {
     private static final String TIPO_CHAT_GRUPAL_ID = "97XeeFNzro7xurmKwKeh";
@@ -79,9 +82,8 @@ public class GrupoActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private String currentUserId, chatId, nombreGrupo, nombreActualUsuario;
     private Uri imageUriSeleccionada;
-    private MediaRecorder mediaRecorder;
-    private boolean isRecording = false;
-    private String audioFilePath;
+    private AudioGrabacion audioGrabacion;
+
     private boolean permisoToastMostrado = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,12 +100,22 @@ public class GrupoActivity extends AppCompatActivity {
                 result -> {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
-                        if (imageUri != null) {
-                            prepareAndUploadImage(imageUri);
+                        if (imageUri != null && nombreActualUsuario != null) {
+                            ImagenChats imagenChats = new ImagenChats(
+                                    GrupoActivity.this,
+                                    chatId,
+                                    currentUserId,
+                                    nombreActualUsuario,
+                                    true
+                            );
+                            imagenChats.enviarImagen(imageUri);
+                        } else {
+                            showToast("Error: nombre de usuario no disponible o imagen nula.");
                         }
                     }
                 }
         );
+
         btnEmoji.setOnClickListener(v -> {
             String permiso = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                     ? Manifest.permission.READ_MEDIA_IMAGES
@@ -130,7 +142,7 @@ public class GrupoActivity extends AppCompatActivity {
         tvNombreGrupo.setText(!TextUtils.isEmpty(nombreGrupo) ? nombreGrupo : "Chat grupal");
         obtenerNombreUsuarioActual();
         verificarChatGrupal();
-        cargarFotoPerfilGrupo(); // NUEVO
+        cargarFotoPerfilGrupo();
         loadMessages();
         btnEnviar.setOnClickListener(v -> enviarMensaje());
         btnBack.setOnClickListener(v -> onBackPressed());
@@ -145,78 +157,6 @@ public class GrupoActivity extends AppCompatActivity {
         btnEmoji = findViewById(R.id.btnEmoji);
         btnBack = findViewById(R.id.btnBack);
     }
-    private void prepareAndUploadImage(Uri uri) {
-        // 1) Prepara el archivo en cache si viene de content://
-        Uri uploadUri = uri;
-        if ("content".equals(uri.getScheme())) {
-            try (InputStream is = getContentResolver().openInputStream(uri)) {
-                File tmp = new File(getCacheDir(), "upload_" + UUID.randomUUID() + ".jpg");
-                try (FileOutputStream fos = new FileOutputStream(tmp)) {
-                    byte[] buf = new byte[8192];
-                    int len;
-                    while ((len = is.read(buf)) > 0) {
-                        fos.write(buf, 0, len);
-                    }
-                }
-                uploadUri = Uri.fromFile(tmp);
-            } catch (IOException e) {
-                e.printStackTrace();
-                showToast("Error preparando imagen: " + e.getMessage());
-                return;
-            }
-        }
-
-        // 2) Crea MultipartBody.Part
-        File file = new File(uploadUri.getPath());
-        RequestBody req = RequestBody.create(
-                okhttp3.MediaType.parse("image/jpeg"), file);
-        String fileName = UUID.randomUUID().toString() + ".jpg";
-        MultipartBody.Part part = MultipartBody.Part.createFormData("file", fileName, req);
-
-        // 3) Llama a SupabaseService con tu token y URL constantes
-        SupabaseService service = RetrofitClient
-                .getInstance()
-                .create(SupabaseService.class);
-        Call<ResponseBody> call = service.uploadFile(
-                SUPABASE_TOKEN,
-                fileName,
-                part
-        );
-
-        // 4) Ejecuta la llamada y guarda el mensaje en Firestore
-        call.enqueue(new Callback<ResponseBody>() {
-            @Override
-            public void onResponse(Call<ResponseBody> c, Response<ResponseBody> r) {
-                if (r.isSuccessful()) {
-                    String imageUrl = SUPABASE_URL
-                            + "/storage/v1/object/public/minechap/" + fileName;
-                    saveImageMessage(imageUrl);
-                } else {
-                    showToast("Error subiendo imagen: " + r.code());
-                }
-            }
-            @Override
-            public void onFailure(Call<ResponseBody> c, Throwable t) {
-                showToast("Fallo al conectar: " + t.getMessage());
-            }
-        });
-    }
-
-    private void saveImageMessage(String imageUrl) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("chat_id", chatId);
-        data.put("tipo", "image");
-        data.put("image_url", imageUrl);
-        data.put("usuario_id", currentUserId);
-        data.put("nombre_usuario", nombreActualUsuario);
-        data.put("fecha_creado", FieldValue.serverTimestamp());
-
-        db.collection("notificacion")
-                .add(data)
-                .addOnFailureListener(e -> showToast("Error guardando imagen"));
-    }
-
-
     private void cargarFotoPerfilGrupo() {
         db.collection("chats").document(chatId)
                 .get()
@@ -265,12 +205,12 @@ public class GrupoActivity extends AppCompatActivity {
                         requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 200);
                         return false;
                     }
-                    iniciarGrabacionAudio();
+                    audioGrabacion.startRecording();
                     return true;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    if (isRecording) {
-                        detenerGrabacionAudio();
+                    if (audioGrabacion.isRecording()) {
+                        audioGrabacion.stopRecording();
                     }
                     return true;
             }
@@ -293,43 +233,6 @@ public class GrupoActivity extends AppCompatActivity {
     private boolean tienePermisosDeAudio() {
         return ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
-    private void iniciarGrabacionAudio() {
-        try {
-            File audioDir = new File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), "audio");
-            if (!audioDir.exists()) {
-                audioDir.mkdirs();
-            }
-            File audioFile = new File(audioDir, "AUDIO_" + System.currentTimeMillis() + ".3gp");
-            audioFilePath = audioFile.getAbsolutePath();
-            mediaRecorder = new MediaRecorder();
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-            mediaRecorder.setOutputFile(audioFilePath);
-            mediaRecorder.prepare();
-            mediaRecorder.start();
-            isRecording = true;
-            showToast("🎙 Grabando...");
-        } catch (IOException e) {
-            e.printStackTrace();
-            showToast("❌ Error al iniciar grabación: " + e.getMessage());
-        } catch (IllegalStateException e) {
-            e.printStackTrace();
-            showToast("❌ Estado ilegal: " + e.getMessage());
-        }
-    }
-    private void detenerGrabacionAudio() {
-        try {
-            mediaRecorder.stop();
-            mediaRecorder.release();
-            mediaRecorder = null;
-            isRecording = false;
-            subirAudioASupabase(new File(audioFilePath));
-        } catch (Exception e) {
-            showToast("Error al detener grabación");
-        }
-    }
-
     private void mostrarBotonEnviar() {
         btnAudio.setVisibility(View.GONE);
         btnEnviar.setVisibility(View.VISIBLE);
@@ -340,62 +243,13 @@ public class GrupoActivity extends AppCompatActivity {
         btnAudio.setVisibility(View.VISIBLE);
     }
 
-    private void subirAudioASupabase(File audioFile) {
-        String supabaseUrl = SUPABASE_URL;
-        String supabaseBearerToken = SUPABASE_TOKEN;
-        String fileName = "audio/" + audioFile.getName();
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(supabaseUrl)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-        SupabaseService service = retrofit.create(SupabaseService.class);
-        RequestBody requestBody = RequestBody.create(MediaType.parse("audio/3gp"), audioFile);
-        MultipartBody.Part part = MultipartBody.Part.createFormData("file", audioFile.getName(), requestBody);
-        Call<ResponseBody> call = service.uploadFile(supabaseBearerToken, fileName, part);
-        call.enqueue(new Callback<ResponseBody>() {
-            @Override
-            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                if (response.isSuccessful()) {
-                    String audioUrl = SUPABASE_URL + "/storage/v1/object/public/minechap/" + fileName;
-                    long duracion = getDuracionAudio(audioFile.getAbsolutePath());
-                    String duracionTexto = convertirDuracion(duracion);
-                    guardarMensajeAudio(audioUrl, duracionTexto);
-                } else {
-                    showToast("Error al subir audio: " + response.code());
-                }
-            }
-            @Override
-            public void onFailure(Call<ResponseBody> call, Throwable t) {
-                t.printStackTrace();
-                showToast("Fallo al conectar con Supabase");
-            }
-            private long getDuracionAudio(String filePath) {
-                try {
-                    MediaPlayer player = new MediaPlayer();
-                    player.setDataSource(filePath);
-                    player.prepare();
-                    int duration = player.getDuration();
-                    player.release();
-                    return duration;
-                } catch (Exception e) {
-                    return 0;
-                }
-            }
-            private String convertirDuracion(long milisegundos) {
-                int segundos = (int) (milisegundos / 1000);
-                int minutos = segundos / 60;
-                segundos %= 60;
-                return String.format(Locale.getDefault(), "%d:%02d", minutos, segundos);
-            }
-        });
-    }
-
     private void obtenerNombreUsuarioActual() {
         db.collection("usuarios").document(currentUserId)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     nombreActualUsuario = documentSnapshot.getString("nombre");
                     if (TextUtils.isEmpty(nombreActualUsuario)) nombreActualUsuario = "Tú";
+                    audioGrabacion = new AudioGrabacion(this, chatId, currentUserId, nombreActualUsuario);
                     enviarMensajeInicialSiEsNecesario();
                 })
 
@@ -422,7 +276,15 @@ public class GrupoActivity extends AppCompatActivity {
     private void enviarMensaje() {
         String mensajeTexto = editMensaje.getText().toString().trim();
         if (imageUriSeleccionada != null) {
-            subirImagenASupabase(imageUriSeleccionada);
+            ImagenChats imagenChats = new ImagenChats(
+                    GrupoActivity.this,
+                    chatId,
+                    currentUserId,
+                    nombreActualUsuario,
+                    true
+            );
+            imagenChats.enviarImagen(imageUriSeleccionada);
+            imageUriSeleccionada = null;
             return;
         }
         if (mensajeTexto.isEmpty()) {
@@ -435,19 +297,6 @@ public class GrupoActivity extends AppCompatActivity {
         guardarMensajeEnFirestore(mensajeTexto);
         editMensaje.setText("");
     }
-    private void guardarMensajeAudio(String audioUrl, String duracion) {
-        Map<String, Object> mensajeData = new HashMap<>();
-        mensajeData.put("chat_id", chatId);
-        mensajeData.put("audio_url", audioUrl);
-        mensajeData.put("duracion", duracion);
-        mensajeData.put("usuario_id", currentUserId);
-        mensajeData.put("nombre_usuario", nombreActualUsuario);
-        mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
-
-        db.collection("notificacion").add(mensajeData)
-                .addOnSuccessListener(documentReference -> showToast("Audio enviado"))
-                .addOnFailureListener(e -> showToast("Error al guardar audio"));
-    }
     private void guardarMensajeEnFirestore(String mensajeTexto) {
         Map<String, Object> mensajeData = new HashMap<>();
         mensajeData.put("chat_id", chatId);
@@ -458,41 +307,7 @@ public class GrupoActivity extends AppCompatActivity {
 
         db.collection("notificacion").add(mensajeData);
     }
-    private void subirImagenASupabase(Uri imagenUri) {
-        try {
-            String fileName = "IMG_" + System.currentTimeMillis() + ".jpg";
-            InputStream inputStream = getContentResolver().openInputStream(imagenUri);
-            byte[] bytes = new byte[inputStream.available()];
-            inputStream.read(bytes);
-            inputStream.close();
-            RequestBody requestFile = RequestBody.create(bytes, okhttp3.MediaType.parse("image/jpeg"));
-            MultipartBody.Part body = MultipartBody.Part.createFormData("file", fileName, requestFile);
-            SupabaseService service = RetrofitClient
-                    .getInstance()
-                    .create(SupabaseService.class);
-            Call<ResponseBody> call = service.uploadFile(SUPABASE_TOKEN, fileName, body); // USO CORRECTO
-            call.enqueue(new Callback<ResponseBody>() {
-                @Override
-                public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                    if (response.isSuccessful()) {
-                        String imageUrl = SUPABASE_URL + "/storage/v1/object/public/minechap/" + fileName;
-                        guardarMensajeImagenEnFirestore(imageUrl);
-                    } else {
-                        showToast("Error al subir imagen: " + response.code());
-                    }
-                    imageUriSeleccionada = null;
-                }
-                @Override
-                public void onFailure(Call<ResponseBody> call, Throwable t) {
-                    showToast("Fallo en la carga: " + t.getMessage());
-                    imageUriSeleccionada = null;
-                }
-            });
 
-        } catch (Exception e) {
-            showToast("Error leyendo imagen: " + e.getMessage());
-        }
-    }
     private void guardarMensajeImagenEnFirestore(String imageUrl) {
         Map<String, Object> data = new HashMap<>();
         data.put("chat_id", chatId);
@@ -517,30 +332,37 @@ public class GrupoActivity extends AppCompatActivity {
                         showToast("Error al cargar mensajes");
                         return;
                     }
+
                     listaMensajes.clear();
+
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
                         String usuarioId = doc.getString("usuario_id");
                         String nombreUsuario = doc.getString("nombre_usuario");
                         Date fecha = doc.getDate("fecha_creado");
+                        String tipo = doc.getString("tipo"); // ✅ Ahora sí podemos usar "tipo"
+
                         boolean esEnviado = usuarioId != null && usuarioId.equals(currentUserId);
+
                         if (doc.contains("audio_url")) {
                             String audioUrl = doc.getString("audio_url");
                             String duracion = doc.getString("duracion");
-                            listaMensajes.add(new MensajeModel(audioUrl, duracion, esEnviado, fecha));
-                        }
-                        else if (doc.contains("image_url")) {
+                            listaMensajes.add(new MensajeModel(audioUrl, duracion, esEnviado, nombreUsuario, fecha));
+
+                        } else if ("image".equals(tipo)) {
                             String imageUrl = doc.getString("image_url");
-                            listaMensajes.add(new MensajeModel(imageUrl, esEnviado, true, fecha));
-                        }
-                        else {
+                            listaMensajes.add(new MensajeModel(imageUrl, esEnviado, nombreUsuario, fecha, true)); // ✅ constructor de imagen
+
+                        } else {
                             String mensaje = doc.getString("mensaje");
-                            listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha));
+                            listaMensajes.add(new MensajeModel(mensaje, esEnviado, nombreUsuario, fecha)); // ✅ constructor de texto
                         }
                     }
+
                     mensajeAdapter.notifyDataSetChanged();
                     recyclerMensajes.scrollToPosition(listaMensajes.size() - 1);
                 });
     }
+
     private void showToast(String mensaje) {
         Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show();
     }

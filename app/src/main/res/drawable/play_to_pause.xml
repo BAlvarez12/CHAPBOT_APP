@@ -1,0 +1,6 @@
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/avd_play_pause_vector">
+    <target
+        android:name="icon"
+        android:animation="@animator/play_to_pause_anim" />
+</animated-vector>

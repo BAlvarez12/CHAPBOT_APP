@@ -1,5 +1,4 @@
-<!-- res/drawable/play_button.xml -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="oval">
-    <solid android:color="#6200EE" />
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#263238" />
+    <corners android:radius="20dp" />
 </shape>
