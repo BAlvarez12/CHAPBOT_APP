@@ -2,6 +2,9 @@ package com.example.minechapapp;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,6 +28,7 @@ public class ChatAdap extends RecyclerView.Adapter<ChatAdap.ChatViewHolder> {
     public ChatAdap(List<Chat_individual> listaDeChats) {
         this.listaDeChats = listaDeChats;
     }
+
     @NonNull
     @Override
     public ChatViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -32,13 +36,27 @@ public class ChatAdap extends RecyclerView.Adapter<ChatAdap.ChatViewHolder> {
                 .inflate(R.layout.item_chat, parent, false);
         return new ChatViewHolder(vistaItem);
     }
+
     @Override
     public void onBindViewHolder(@NonNull ChatViewHolder holder, int position) {
         Chat_individual chat = listaDeChats.get(position);
         holder.tvNombre.setText(chat.getNombre() != null ? chat.getNombre() : "Usuario desconocido");
         holder.tvUltimoMensaje.setText(chat.getUltimoMensaje() != null ? chat.getUltimoMensaje() : "Sin mensaje");
         holder.tvHora.setText(chat.getHora() != null ? chat.getHora() : "");
-        holder.ivPerfil.setImageResource(R.drawable.ic_launcher_foreground);
+
+        // Mostrar imagen de perfil desde Base64 si está disponible
+        if (chat.getFotoPerfilBase64() != null && !chat.getFotoPerfilBase64().isEmpty()) {
+            try {
+                byte[] decodedBytes = Base64.decode(chat.getFotoPerfilBase64(), Base64.DEFAULT);
+                Bitmap bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+                holder.ivPerfil.setImageBitmap(bitmap);
+            } catch (Exception e) {
+                holder.ivPerfil.setImageResource(R.drawable.default_profile_image);
+            }
+        } else {
+            holder.ivPerfil.setImageResource(R.drawable.default_profile_image);
+        }
+
         holder.itemView.setOnClickListener(v -> {
             Context context = v.getContext();
             if (TIPO_CHAT_GRUPAL_ID.equals(chat.getTipoChat())) {
@@ -56,6 +74,7 @@ public class ChatAdap extends RecyclerView.Adapter<ChatAdap.ChatViewHolder> {
             }
         });
     }
+
     @Override
     public int getItemCount() {
         return listaDeChats != null ? listaDeChats.size() : 0;

@@ -12,6 +12,8 @@ public class Chat_individual {
     private boolean esGrupal;
     private String tipoChat;
     private Date timestamp;
+    private String fotoPerfilBase64;
+    private String fotoUrl;
 
     public Chat_individual() {}
 
@@ -25,6 +27,7 @@ public class Chat_individual {
         this.esGrupal = false;
         this.tipoChat = "NCm3QCIsKw8MjjHycvm5";
     }
+
     public Chat_individual(String chatId, String nombre, String ultimoMensaje, String hora) {
         this.chatId = chatId;
         this.otherUserId = "";
@@ -34,6 +37,7 @@ public class Chat_individual {
         this.esGrupal = true;
         this.tipoChat = "97XeeFNzro7xurmKwKeh";
     }
+
     public Chat_individual(String chatId, String otherUserId, String nombre, String ultimoMensaje, String hora, boolean esGrupal, String tipoChat) {
         this.chatId = chatId;
         this.otherUserId = otherUserId;
@@ -43,6 +47,7 @@ public class Chat_individual {
         this.esGrupal = esGrupal;
         this.tipoChat = tipoChat;
     }
+
     public String getChatId() {
         return chatId;
     }
@@ -106,5 +111,20 @@ public class Chat_individual {
     public void setTimestamp(Date timestamp) {
         this.timestamp = timestamp;
     }
-}
 
+    public String getFotoPerfilBase64() {
+        return fotoPerfilBase64;
+    }
+
+    public void setFotoPerfilBase64(String fotoPerfilBase64) {
+        this.fotoPerfilBase64 = fotoPerfilBase64;
+    }
+
+    public String getFotoUrl() {
+        return fotoUrl;
+    }
+
+    public void setFotoUrl(String fotoUrl) {
+        this.fotoUrl = fotoUrl;
+    }
+}

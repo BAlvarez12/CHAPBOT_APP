@@ -70,6 +70,7 @@ public class ChatsFragmento extends Fragment {
         super.onDestroyView();
         if (listenerChats != null) listenerChats.remove();
     }
+
     private void escucharCambiosEnChatsOrdenados() {
         chatsCargados.clear();
         if (listenerChats != null) listenerChats.remove();
@@ -103,6 +104,7 @@ public class ChatsFragmento extends Fragment {
                             }
                             Chat_individual chat = new Chat_individual(chatId, nombreGrupo, ultimoMensaje, hora);
                             chat.setTimestamp(timestamp);
+                            chat.setFotoPerfilBase64(doc.getString("foto_grupo_base64"));
                             chatAdap.actualizarListaSinDuplicados(Collections.singletonList(chat));
                         } else {
                             String usuarioA = doc.getString("usuario_a");
@@ -122,14 +124,15 @@ public class ChatsFragmento extends Fragment {
                     chatAdap.notifyDataSetChanged();
                 });
     }
+
     private void cargarNombreYCrearChat(String chatId, String otherUserId, DocumentSnapshot doc, Date timestamp) {
         db.collection("usuarios").document(otherUserId)
                 .get()
                 .addOnSuccessListener(userDoc -> {
                     String nombreUsuario = userDoc.getString("nombre");
+                    String fotoBase64 = userDoc.getString("fotoBase64");
 
                     String ultimoMensaje = "";
-
                     if (doc.contains("audio_url")) {
                         ultimoMensaje = "🎤 Audio";
                     }
@@ -137,11 +140,12 @@ public class ChatsFragmento extends Fragment {
                     if (!TextUtils.isEmpty(textoMensaje)) {
                         ultimoMensaje = textoMensaje;
                     }
-
                     if (TextUtils.isEmpty(ultimoMensaje)) {
                         ultimoMensaje = "Sin mensaje";
                     }
+
                     String hora = (timestamp != null) ? new SimpleDateFormat("hh:mm a", Locale.getDefault()).format(timestamp) : "";
+
                     Chat_individual chat = new Chat_individual(
                             chatId,
                             otherUserId,
@@ -150,6 +154,8 @@ public class ChatsFragmento extends Fragment {
                             hora
                     );
                     chat.setTimestamp(timestamp);
+                    chat.setFotoPerfilBase64(fotoBase64);
+
                     chatAdap.actualizarListaSinDuplicados(Collections.singletonList(chat));
 
                     Collections.sort(listaDeChats, (a, b) -> {
@@ -162,6 +168,8 @@ public class ChatsFragmento extends Fragment {
                     chatAdap.notifyDataSetChanged();
                 });
     }
+
+
     private void configurarSwipeParaEliminar() {
         ItemTouchHelper.SimpleCallback simpleCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
             @Override
@@ -185,14 +193,13 @@ public class ChatsFragmento extends Fragment {
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(simpleCallback);
         itemTouchHelper.attachToRecyclerView(recyclerView);
     }
+
     private void eliminarChat(String chatId) {
-        // Oculta el chat para el usuario actual
         db.collection("chats").document(chatId)
                 .update("eliminado_por", FieldValue.arrayUnion(currentUserId))
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "Chat ocultado correctamente");
 
-                    // Luego elimina todos los mensajes del chat
                     db.collection("notificacion")
                             .whereEqualTo("chat_id", chatId)
                             .get()
@@ -206,5 +213,4 @@ public class ChatsFragmento extends Fragment {
                 })
                 .addOnFailureListener(e -> Log.e(TAG, "Error al ocultar el chat", e));
     }
-
 }

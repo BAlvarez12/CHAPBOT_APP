@@ -4,7 +4,10 @@ import java.util.Date;
 
 public class MensajeModel {
     private String mensaje;
+    private boolean enviado;
     private String imageUrl;
+    private String nombreUsuario;
+    private boolean esAudio;
     private String audioUrl;
     private String duracion;
     private String nombreUsuario; // solo para grupo

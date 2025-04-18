@@ -36,6 +36,11 @@
     <activity
         android:name=".UsuariosActivos"
         android:exported="true" />
+
+        <activity
+            android:name=".ConfigGrupoActivity"
+            android:exported="true" />
+
     <activity
         android:name=".GrupoChatActivity"
         android:exported="true" />
