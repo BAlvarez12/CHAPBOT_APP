@@ -127,16 +127,22 @@ public class AudioGrabacion {
         mensajeData.put("usuario_id", userId);
         mensajeData.put("nombre_usuario", nombreUsuario);
         mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
+        mensajeData.put("tipo", "audio"); // ✅ Agregado
 
         db.collection("notificacion").add(mensajeData)
                 .addOnSuccessListener(documentReference -> {
                     Map<String, Object> updateChat = new HashMap<>();
                     updateChat.put("ultimo_mensaje", "🎤 Audio");
+                    updateChat.put("ultimo_mensaje_tipo", "audio"); // ✅ Agregado
                     updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+
                     db.collection("chats").document(chatId).update(updateChat);
                 })
-                .addOnFailureListener(e -> Toast.makeText(context, "Error al guardar audio", Toast.LENGTH_SHORT).show());
+                .addOnFailureListener(e ->
+                        Toast.makeText(context, "Error al guardar audio", Toast.LENGTH_SHORT).show()
+                );
     }
+
 
     private long getDuracionAudio(String filePath) {
         try {

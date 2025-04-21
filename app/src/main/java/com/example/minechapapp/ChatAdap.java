@@ -18,6 +18,14 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Objects;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Objects;
+
+
 
 public class ChatAdap extends RecyclerView.Adapter<ChatAdap.ChatViewHolder> {
     private static final String TIPO_CHAT_INDIVIDUAL_ID = "NCm3QCIsKw8MjjHycvm5";
@@ -81,19 +89,31 @@ public class ChatAdap extends RecyclerView.Adapter<ChatAdap.ChatViewHolder> {
     }
 
     public void actualizarListaSinDuplicados(List<Chat_individual> nuevosChats) {
-        Set<String> idsExistentes = new HashSet<>();
-        for (Chat_individual c : listaDeChats) {
-            idsExistentes.add(c.getChatId());
+        // 🔍 Crear un mapa temporal para buscar por ID
+        Map<String, Chat_individual> mapa = new HashMap<>();
+
+        // 1️⃣ Agrega los existentes
+        for (Chat_individual chat : listaDeChats) {
+            mapa.put(chat.getChatId(), chat);
         }
 
+        // 2️⃣ Agrega o reemplaza con los nuevos
         for (Chat_individual nuevo : nuevosChats) {
-            if (!idsExistentes.contains(nuevo.getChatId())) {
-                listaDeChats.add(nuevo);
-            }
+            mapa.put(nuevo.getChatId(), nuevo);
         }
+
+        // 3️⃣ Limpia y agrega todos en orden
+        listaDeChats.clear();
+        listaDeChats.addAll(mapa.values());
+
+        // 4️⃣ Ordena por timestamp descendente
+        listaDeChats.sort((a, b) -> {
+            if (a.getTimestamp() == null || b.getTimestamp() == null) return 0;
+            return Objects.requireNonNull(b.getTimestamp()).compareTo(a.getTimestamp());
+        });
+
         notifyDataSetChanged();
     }
-
     public static class ChatViewHolder extends RecyclerView.ViewHolder {
         TextView tvNombre, tvUltimoMensaje, tvHora;
         ImageView ivPerfil;

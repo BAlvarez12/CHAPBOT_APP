@@ -40,10 +40,13 @@ public class inicioActivity extends AppCompatActivity {
 
         FirebaseUser user = mAuth.getCurrentUser();
         if (user != null) {
-            getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container, new ChatsFragmento())
-                    .commit();
-        } else {
+            if (savedInstanceState == null) {
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, new ChatsFragmento())
+                        .commit();
+            }
+        }
+        else {
             startActivity(new Intent(inicioActivity.this, Login.class));
             finish();
         }

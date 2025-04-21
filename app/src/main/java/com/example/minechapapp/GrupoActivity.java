@@ -145,7 +145,10 @@ public class GrupoActivity extends AppCompatActivity {
         cargarFotoPerfilGrupo();
         loadMessages();
         btnEnviar.setOnClickListener(v -> enviarMensaje());
-        btnBack.setOnClickListener(v -> onBackPressed());
+        btnBack.setOnClickListener(v -> {
+            new android.os.Handler().postDelayed(() -> onBackPressed(), 50);
+        });
+
     }
     private void inicializarComponentes() {
         tvNombreGrupo = findViewById(R.id.tvNombreUsuario);
@@ -305,7 +308,17 @@ public class GrupoActivity extends AppCompatActivity {
         mensajeData.put("nombre_usuario", nombreActualUsuario);
         mensajeData.put("fecha_creado", FieldValue.serverTimestamp());
 
-        db.collection("notificacion").add(mensajeData);
+        Map<String, Object> updateChat = new HashMap<>();
+        updateChat.put("ultimo_mensaje", mensajeTexto);
+        updateChat.put("ultimo_mensaje_tipo", "texto");
+        updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+
+        db.collection("chats").document(chatId).update(updateChat)
+                .addOnSuccessListener(aVoid -> {
+                    // ✅ Luego de actualizar el chat, se guarda el mensaje
+                    db.collection("notificacion").add(mensajeData);
+                })
+                .addOnFailureListener(e -> showToast("Error al actualizar el chat"));
     }
 
     private void guardarMensajeImagenEnFirestore(String imageUrl) {
@@ -315,14 +328,24 @@ public class GrupoActivity extends AppCompatActivity {
         data.put("nombre_usuario", nombreActualUsuario);
         data.put("imagen_url", imageUrl);
         data.put("fecha_creado", FieldValue.serverTimestamp());
+        data.put("tipo", "image"); // 🔹 importante
+
         db.collection("notificacion")
                 .add(data)
                 .addOnSuccessListener(doc -> {
+                    // ✅ ACTUALIZAMOS EL CHAT
+                    Map<String, Object> updateChat = new HashMap<>();
+                    updateChat.put("ultimo_mensaje", "📷 Imagen");
+                    updateChat.put("ultimo_mensaje_tipo", "imagen");
+                    updateChat.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+
+                    db.collection("chats").document(chatId).update(updateChat);
                 })
                 .addOnFailureListener(e -> {
                     showToast("Error guardando imagen en chat");
                 });
     }
+
     private void loadMessages() {
         db.collection("notificacion")
                 .whereEqualTo("chat_id", chatId)
@@ -393,5 +416,13 @@ public class GrupoActivity extends AppCompatActivity {
                                 });
                     }
                 });
+    }
+    @Override
+    public void onBackPressed() {
+        Intent intent = new Intent(GrupoActivity.this, inicioActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+
+        super.onBackPressed();
     }
 }

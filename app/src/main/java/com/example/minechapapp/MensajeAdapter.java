@@ -2,7 +2,6 @@ package com.example.minechapapp;
 
 import android.app.Activity;
 import android.content.Context;
-import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
 import android.media.MediaPlayer;
 import android.view.LayoutInflater;
@@ -16,10 +15,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -36,7 +35,7 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private static final int TIPO_ENVIADO = 1;
     private static final int TIPO_RECIBIDO = 2;
     private static final int TIPO_AUDIO = 3;
-    private static final int TIPO_SISTEMA = 4; // Nuevo tipo para mensajes del sistema
+    private static final int TIPO_SISTEMA = 4;
 
     private List<MensajeModel> listaMensajes;
     private boolean esGrupal;
@@ -51,11 +50,8 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public int getItemViewType(int position) {
         MensajeModel mensaje = listaMensajes.get(position);
-        if (mensaje.esAudio()) {
-            return TIPO_AUDIO;
-        } else {
-            return mensaje.isEnviado() ? TIPO_ENVIADO : TIPO_RECIBIDO;
-        }
+        if (mensaje.esAudio()) return TIPO_AUDIO;
+        return mensaje.isEnviado() ? TIPO_ENVIADO : TIPO_RECIBIDO;
     }
 
     @Override
@@ -67,148 +63,117 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
-
-        if (viewType == TIPO_ENVIADO) {
-            View view = inflater.inflate(R.layout.item_mensaje_enviado, parent, false);
-            return new SentViewHolder(view);
-        } else if (viewType == TIPO_RECIBIDO) {
-            View view = inflater.inflate(R.layout.item_mensaje_recibido, parent, false);
-            return new ReceivedViewHolder(view);
-        } else if (viewType == TIPO_AUDIO) {
-            View view = inflater.inflate(R.layout.item_mensaje_audio, parent, false);
-            return new AudioViewHolder(view);
-        } else if (viewType == TIPO_SISTEMA) {
-            View view = inflater.inflate(R.layout.item_mensaje_sistema, parent, false);
-            return new SystemViewHolder(view);
-        }
-        return null;
+        if (viewType == TIPO_ENVIADO)
+            return new SentViewHolder(inflater.inflate(R.layout.item_mensaje_enviado, parent, false));
+        else if (viewType == TIPO_RECIBIDO)
+            return new ReceivedViewHolder(inflater.inflate(R.layout.item_mensaje_recibido, parent, false));
+        else if (viewType == TIPO_AUDIO)
+            return new AudioViewHolder(inflater.inflate(R.layout.item_mensaje_audio, parent, false));
+        else
+            return new SystemViewHolder(inflater.inflate(R.layout.item_mensaje_sistema, parent, false));
     }
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         MensajeModel mensaje = listaMensajes.get(position);
-        SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", new Locale("es", "GT"));
-        sdf.setTimeZone(java.util.TimeZone.getTimeZone("America/Guatemala"));
-        String hora = mensaje.getFecha() != null ? sdf.format(mensaje.getFecha()) : "";
+        String hora = mensaje.getFecha() != null
+                ? new SimpleDateFormat("hh:mm a", new Locale("es", "GT")).format(mensaje.getFecha())
+                : "";
 
         if (holder instanceof SentViewHolder) {
-            SentViewHolder sentHolder = (SentViewHolder) holder;
-
+            SentViewHolder h = (SentViewHolder) holder;
             if (esGrupal && mensaje.getNombreUsuario() != null) {
-                sentHolder.tvNombreUsuario.setVisibility(View.VISIBLE);
-                sentHolder.tvNombreUsuario.setText("Tú");
-            } else {
-                sentHolder.tvNombreUsuario.setVisibility(View.GONE);
-            }
+                h.tvNombreUsuario.setVisibility(View.VISIBLE);
+                h.tvNombreUsuario.setText("Tú");
+            } else h.tvNombreUsuario.setVisibility(View.GONE);
 
             if (mensaje.tieneImagen()) {
-                sentHolder.tvMensaje.setVisibility(View.GONE);
-                sentHolder.imgMensaje.setVisibility(View.VISIBLE);
-                Glide.with(sentHolder.itemView.getContext())
+                h.tvMensaje.setVisibility(View.GONE);
+                h.imgMensaje.setVisibility(View.VISIBLE);
+                Glide.with(context)
                         .load(mensaje.getImageUrl())
-                        .into(sentHolder.imgMensaje);
+                        .thumbnail(0.1f)
+                        .transition(DrawableTransitionOptions.withCrossFade())
+                        .centerCrop()
+                        .into(h.imgMensaje);
             } else {
-                sentHolder.imgMensaje.setVisibility(View.GONE);
-                sentHolder.tvMensaje.setVisibility(View.VISIBLE);
-                sentHolder.tvMensaje.setText(mensaje.getMensaje());
+                h.imgMensaje.setVisibility(View.GONE);
+                h.tvMensaje.setVisibility(View.VISIBLE);
+                h.tvMensaje.setText(mensaje.getMensaje());
             }
-            sentHolder.tvHora.setText(hora);
+            h.tvHora.setText(hora);
 
         } else if (holder instanceof ReceivedViewHolder) {
-            ReceivedViewHolder receivedHolder = (ReceivedViewHolder) holder;
-
+            ReceivedViewHolder h = (ReceivedViewHolder) holder;
             if (esGrupal && mensaje.getNombreUsuario() != null) {
-                receivedHolder.tvNombreUsuario.setVisibility(View.VISIBLE);
-                receivedHolder.tvNombreUsuario.setText(mensaje.getNombreUsuario());
-            } else {
-                receivedHolder.tvNombreUsuario.setVisibility(View.GONE);
-            }
+                h.tvNombreUsuario.setVisibility(View.VISIBLE);
+                h.tvNombreUsuario.setText(mensaje.getNombreUsuario());
+            } else h.tvNombreUsuario.setVisibility(View.GONE);
 
             if (mensaje.tieneImagen()) {
-                receivedHolder.tvMensaje.setVisibility(View.GONE);
-                receivedHolder.imgMensaje.setVisibility(View.VISIBLE);
-                Glide.with(receivedHolder.itemView.getContext())
+                h.tvMensaje.setVisibility(View.GONE);
+                h.imgMensaje.setVisibility(View.VISIBLE);
+                Glide.with(context)
                         .load(mensaje.getImageUrl())
-                        .into(receivedHolder.imgMensaje);
+                        .thumbnail(0.1f)
+                        .transition(DrawableTransitionOptions.withCrossFade())
+                        .centerCrop()
+                        .into(h.imgMensaje);
             } else {
-                receivedHolder.imgMensaje.setVisibility(View.GONE);
-                receivedHolder.tvMensaje.setVisibility(View.VISIBLE);
-                receivedHolder.tvMensaje.setText(mensaje.getMensaje());
+                h.imgMensaje.setVisibility(View.GONE);
+                h.tvMensaje.setVisibility(View.VISIBLE);
+                h.tvMensaje.setText(mensaje.getMensaje());
             }
-            receivedHolder.tvHora.setText(hora);
+            h.tvHora.setText(hora);
 
         } else if (holder instanceof AudioViewHolder) {
-            AudioViewHolder audioHolder = (AudioViewHolder) holder;
-            Context context = holder.itemView.getContext();
-
+            AudioViewHolder h = (AudioViewHolder) holder;
             if (esGrupal && mensaje.getNombreUsuario() != null) {
-                audioHolder.tvNombreUsuarioAudio.setVisibility(View.VISIBLE);
-                audioHolder.tvNombreUsuarioAudio.setText(mensaje.isEnviado() ? "Tú" : mensaje.getNombreUsuario());
-            } else {
-                audioHolder.tvNombreUsuarioAudio.setVisibility(View.GONE);
-            }
+                h.tvNombreUsuarioAudio.setVisibility(View.VISIBLE);
+                h.tvNombreUsuarioAudio.setText(mensaje.isEnviado() ? "Tú" : mensaje.getNombreUsuario());
+            } else h.tvNombreUsuarioAudio.setVisibility(View.GONE);
 
-            String duracion = mensaje.getDuracion() != null ? mensaje.getDuracion() : "0:00";
-            audioHolder.tvDuracionAudio.setText(duracion);
-
-            audioHolder.btnPlayAudio.setOnClickListener(v -> {
-                new Thread(() -> {
-                    try {
-                        File audioLocal = descargarAudioDesdeUrl(mensaje.getAudioUrl(), "AUDIO_" + System.currentTimeMillis() + ".3gp");
-                        MediaPlayer mediaPlayer = new MediaPlayer();
-                        mediaPlayer.setDataSource(audioLocal.getAbsolutePath());
-                        mediaPlayer.prepare();
-                        mediaPlayer.start();
-
-                        ((Activity) context).runOnUiThread(() -> {
-                            audioHolder.btnPlayAudio.setImageResource(R.drawable.avd_pause_play_vector);
-                        });
-
-                        mediaPlayer.setOnCompletionListener(mp -> {
-                            ((Activity) context).runOnUiThread(() -> {
-                                audioHolder.btnPlayAudio.setImageResource(R.drawable.avd_play_pause_vector);
-                            });
-                        });
-
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        ((Activity) context).runOnUiThread(() ->
-                                Toast.makeText(context, "Error al reproducir audio", Toast.LENGTH_SHORT).show()
-                        );
-                    }
-                }).start();
+            h.tvDuracionAudio.setText(mensaje.getDuracion() != null ? mensaje.getDuracion() : "0:00");
+            h.btnPlayAudio.setOnClickListener(v -> {
+                String nombreArchivo = "AUDIO_" + mensaje.getId() + ".3gp";
+                File archivoAudio = new File(context.getExternalFilesDir(null), nombreArchivo);
+                if (archivoAudio.exists()) {
+                    reproducirAudio(archivoAudio, h);
+                } else {
+                    new Thread(() -> {
+                        try {
+                            File descargado = descargarAudioDesdeUrl(mensaje.getAudioUrl(), nombreArchivo);
+                            ((Activity) context).runOnUiThread(() -> reproducirAudio(descargado, h));
+                        } catch (IOException e) {
+                            ((Activity) context).runOnUiThread(() ->
+                                    Toast.makeText(context, "Error al descargar audio", Toast.LENGTH_SHORT).show());
+                        }
+                    }).start();
+                }
             });
 
         } else if (holder instanceof SystemViewHolder) {
-            SystemViewHolder systemHolder = (SystemViewHolder) holder;
-            systemHolder.tvMensajeSistema.setText(mensaje.getMensaje());
-            systemHolder.tvHoraSistema.setText(hora);
+            SystemViewHolder h = (SystemViewHolder) holder;
+            h.tvMensajeSistema.setText(mensaje.getMensaje());
+            h.tvHoraSistema.setText(hora);
         }
 
-        Animation anim = AnimationUtils.loadAnimation(holder.itemView.getContext(), R.anim.fade);
+        Animation anim = AnimationUtils.loadAnimation(context, R.anim.fade);
         holder.itemView.startAnimation(anim);
     }
 
-    // ViewHolder para mensajes del sistema
-    public static class SystemViewHolder extends RecyclerView.ViewHolder {
-        TextView tvMensajeSistema, tvHoraSistema;
-
-        public SystemViewHolder(@NonNull View itemView) {
-            super(itemView);
-            tvMensajeSistema = itemView.findViewById(R.id.tvMensajeSistema);
-            tvHoraSistema = itemView.findViewById(R.id.tvHoraMensajeSistema);
-        }
-    }
-
-    public static class AudioViewHolder extends RecyclerView.ViewHolder {
-        ImageButton btnPlayAudio;
-        TextView tvDuracionAudio, tvNombreUsuarioAudio;
-
-        public AudioViewHolder(@NonNull View itemView) {
-            super(itemView);
-            btnPlayAudio = itemView.findViewById(R.id.btnPlayAudio);
-            tvDuracionAudio = itemView.findViewById(R.id.tvDuracionAudio);
-            tvNombreUsuarioAudio = itemView.findViewById(R.id.tvNombreUsuarioAudio);
+    private void reproducirAudio(File archivoAudio, AudioViewHolder h) {
+        try {
+            MediaPlayer mediaPlayer = new MediaPlayer();
+            mediaPlayer.setDataSource(archivoAudio.getAbsolutePath());
+            mediaPlayer.prepare();
+            mediaPlayer.start();
+            h.btnPlayAudio.setImageResource(R.drawable.avd_pause_play_vector);
+            mediaPlayer.setOnCompletionListener(mp ->
+                    h.btnPlayAudio.setImageResource(R.drawable.avd_play_pause_vector)
+            );
+        } catch (IOException e) {
+            Toast.makeText(context, "Error al reproducir audio", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -216,13 +181,9 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         URL audioUrl = new URL(url);
         HttpURLConnection connection = (HttpURLConnection) audioUrl.openConnection();
         connection.connect();
-        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-            throw new IOException("Error al descargar archivo: " + connection.getResponseMessage());
-        }
         InputStream input = connection.getInputStream();
         File outputFile = new File(context.getExternalFilesDir(null), nombreArchivo);
         FileOutputStream output = new FileOutputStream(outputFile);
-
         byte[] buffer = new byte[4096];
         int bytesRead;
         while ((bytesRead = input.read(buffer)) != -1) {
@@ -230,7 +191,6 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
         output.close();
         input.close();
-        connection.disconnect();
         return outputFile;
     }
 
@@ -257,6 +217,28 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             tvNombreUsuario = itemView.findViewById(R.id.tvNombreUsuarioRecibido);
             imgMensaje = itemView.findViewById(R.id.imgMensajeRecibido);
             tvHora = itemView.findViewById(R.id.tvHoraMensajeRecibido);
+        }
+    }
+
+    public static class AudioViewHolder extends RecyclerView.ViewHolder {
+        ImageButton btnPlayAudio;
+        TextView tvDuracionAudio, tvNombreUsuarioAudio;
+
+        public AudioViewHolder(@NonNull View itemView) {
+            super(itemView);
+            btnPlayAudio = itemView.findViewById(R.id.btnPlayAudio);
+            tvDuracionAudio = itemView.findViewById(R.id.tvDuracionAudio);
+            tvNombreUsuarioAudio = itemView.findViewById(R.id.tvNombreUsuarioAudio);
+        }
+    }
+
+    public static class SystemViewHolder extends RecyclerView.ViewHolder {
+        TextView tvMensajeSistema, tvHoraSistema;
+
+        public SystemViewHolder(@NonNull View itemView) {
+            super(itemView);
+            tvMensajeSistema = itemView.findViewById(R.id.tvMensajeSistema);
+            tvHoraSistema = itemView.findViewById(R.id.tvHoraMensajeSistema);
         }
     }
 }

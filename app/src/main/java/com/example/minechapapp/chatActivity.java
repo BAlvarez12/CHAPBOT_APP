@@ -100,6 +100,7 @@ public class chatActivity extends AppCompatActivity {
     private AudioGrabacion audioGrabacion;
     private ImagenChats imagenChats;
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -206,7 +207,10 @@ public class chatActivity extends AppCompatActivity {
             enviarMensaje();
         });
 
-        btnBack.setOnClickListener(v -> onBackPressed());
+        btnBack.setOnClickListener(v -> {
+            // Pequeño retraso antes de cerrar para dar tiempo a Firestore
+            new android.os.Handler().postDelayed(() -> onBackPressed(), 50);
+        });
 
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
                 checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
@@ -406,18 +410,30 @@ public class chatActivity extends AppCompatActivity {
                                 nombreActualUsuario
                         ));
                     } else {
-                        ControladorNotificaciones.enviarMensaje(
-                                chatActivity.this,
-                                chatId,
-                                mensajeTexto,
-                                currentUserId,
-                                receiverId,
-                                nombreActualUsuario
-                        );
+                        // ✅ Primero actualizamos el documento del chat
+                        Map<String, Object> update = new HashMap<>();
+                        update.put("ultimo_mensaje", mensajeTexto);
+                        update.put("ultimo_mensaje_tipo", "texto");
+                        update.put("ultimo_mensaje_timestamp", FieldValue.serverTimestamp());
+
+                        db.collection("chats").document(chatId).update(update)
+                                .addOnSuccessListener(aVoid -> {
+                                    // ✅ Luego enviamos el mensaje
+                                    ControladorNotificaciones.enviarMensaje(
+                                            chatActivity.this,
+                                            chatId,
+                                            mensajeTexto,
+                                            currentUserId,
+                                            receiverId,
+                                            nombreActualUsuario
+                                    );
+                                });
                     }
                 })
                 .addOnFailureListener(e -> showToast("Error al consultar el chat"));
     }
+
+
 
     private void crearChatIndividual(Runnable callback) {
         Map<String, Object> chatData = new HashMap<>();
@@ -504,6 +520,14 @@ public class chatActivity extends AppCompatActivity {
             mensajesListener.remove();
             mensajesListener = null;
         }
+    }
+    @Override
+    public void onBackPressed() {
+        Intent intent = new Intent(chatActivity.this, inicioActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+
+        super.onBackPressed();
     }
 
 }
