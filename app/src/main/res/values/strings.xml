@@ -18,4 +18,5 @@
     <string name="message_hint">Escribe un mensaje...</string>
     <string name="registro">Registro</string>
     <string name="add_menu_desc">Botón para abrir opciones de añadir algo nuevo</string>
+    <string name="imagen_fullscreen">Imagen a pantalla completa</string>
 </resources>

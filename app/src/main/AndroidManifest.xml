@@ -57,6 +57,11 @@
         <activity
             android:name=".EditPerfil"
             android:exported="true" />
+        <!-- Actividad para mostrar imagen en fullscreen -->
+        <activity
+            android:name=".FullscreenImageActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
         <service
             android:name=".Notificaciones_push"
             android:exported="true">

@@ -2,6 +2,7 @@ package com.example.minechapapp;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.media.MediaPlayer;
 import android.view.LayoutInflater;
@@ -96,6 +97,11 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         .transition(DrawableTransitionOptions.withCrossFade())
                         .centerCrop()
                         .into(h.imgMensaje);
+                h.imgMensaje.setOnClickListener(v -> {
+                    Intent i = new Intent(context, FullscreenImageActivity.class);
+                    i.putExtra(FullscreenImageActivity.EXTRA_IMAGE_URL, mensaje.getImageUrl());
+                    context.startActivity(i);
+                });
             } else {
                 h.imgMensaje.setVisibility(View.GONE);
                 h.tvMensaje.setVisibility(View.VISIBLE);
@@ -119,6 +125,11 @@ public class MensajeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         .transition(DrawableTransitionOptions.withCrossFade())
                         .centerCrop()
                         .into(h.imgMensaje);
+                h.imgMensaje.setOnClickListener(v -> {
+                    Intent i = new Intent(context, FullscreenImageActivity.class);
+                    i.putExtra(FullscreenImageActivity.EXTRA_IMAGE_URL, mensaje.getImageUrl());
+                    context.startActivity(i);
+                });
             } else {
                 h.imgMensaje.setVisibility(View.GONE);
                 h.tvMensaje.setVisibility(View.VISIBLE);
