@@ -1,14 +1,14 @@
 plugins {
     alias(libs.plugins.android.application)
-    id("com.google.gms.google-services") // Firebase
+    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.example.minechapapp"
+    namespace = "com.example.chapbot"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.minechapapp"
+        applicationId = "com.example.chapbot"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

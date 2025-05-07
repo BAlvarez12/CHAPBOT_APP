@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Minechap"
+rootProject.name = "chapbot"
 include(":app")

@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "409777701056",
-    "project_id": "minechap-7166e",
-    "storage_bucket": "minechap-7166e.firebasestorage.app"
+    "project_number": "14344390336",
+    "project_id": "chapbot-75973",
+    "storage_bucket": "chapbot-75973.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:409777701056:android:68a3ca48e9b48bdacb2d25",
+        "mobilesdk_app_id": "1:14344390336:android:f7c03820be5d62e5554f25",
         "android_client_info": {
-          "package_name": "com.example.minechapapp"
+          "package_name": "com.example.chapbot"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCxHPT1Lvia6T9aLRLnNXm6JwqYGJIe1sc"
+          "current_key": "AIzaSyApjXPP2dUinmMqP3iGCa9llo3Y07RNJ7M"
         }
       ],
       "services": {
