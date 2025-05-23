@@ -9,7 +9,6 @@
     android:background="@drawable/fondo_chat"
     tools:context=".chatActivity">
 
-    <!-- Toolbar -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutToolbarSinBarra"
         android:layout_width="0dp"

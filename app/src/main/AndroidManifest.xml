@@ -56,8 +56,8 @@
         android:exported="true" />
         <activity
             android:name=".EditPerfil"
-            android:exported="true" />
-        <!-- Actividad para mostrar imagen en fullscreen -->
+            android:exported="true"
+        android:windowSoftInputMode="adjustResize|stateHidden"/>
         <activity
             android:name=".FullscreenImageActivity"
             android:exported="false"

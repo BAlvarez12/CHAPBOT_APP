@@ -4,17 +4,16 @@ import java.util.Date;
 import java.util.UUID;
 
 public class MensajeModel {
-    private String id; // ID único
+    private String id;
     private String mensaje;
     private String imageUrl;
     private String audioUrl;
     private String duracion;
-    private String nombreUsuario; // solo para grupo
+    private String nombreUsuario;
     private boolean enviado;
     private boolean esAudio;
     private Date fecha;
 
-    // ✅ Chat individual (sin nombreUsuario)
     public MensajeModel(String mensaje, boolean enviado, Date fecha) {
         this.id = UUID.randomUUID().toString();
         this.mensaje = mensaje;
@@ -38,7 +37,6 @@ public class MensajeModel {
         this.esAudio = true;
     }
 
-    // ✅ Grupo (con nombreUsuario)
     public MensajeModel(String mensaje, boolean enviado, String nombreUsuario, Date fecha) {
         this.id = UUID.randomUUID().toString();
         this.mensaje = mensaje;
@@ -65,7 +63,6 @@ public class MensajeModel {
         this.esAudio = true;
     }
 
-    // ✅ Getters
     public String getId() {
         return id;
     }

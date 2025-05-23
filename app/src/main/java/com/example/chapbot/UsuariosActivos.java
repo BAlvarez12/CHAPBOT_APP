@@ -38,7 +38,7 @@ public class UsuariosActivos extends AppCompatActivity {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
-                return false; // no hacemos nada al “submit”
+                return false;
             }
 
             @Override

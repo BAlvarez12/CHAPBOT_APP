@@ -1,6 +1,7 @@
 package com.example.chapbot;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -25,18 +26,33 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.FieldValue;
 
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 public class ChatsFragmento extends Fragment {
 
     private static final String TAG = "ChatsFragmento";
+
     private RecyclerView recyclerView;
     private ChatAdap chatAdap;
     private List<Chat_individual> listaDeChats;
+
+    private RecyclerView quickRv;
+    private ChatAdapter quickAdapter;
+    private List<UserMenu> quickItems;
+
     private FirebaseFirestore db;
     private String currentUserId;
-    private final Set<String> chatsCargados = new HashSet<>();
     private ListenerRegistration listenerChats;
+
+    private final Set<String> chatsCargados = new HashSet<>();
     private final Map<String, DocumentSnapshot> usuariosPendientes = new HashMap<>();
     private final List<Chat_individual> bufferChatsIndividuales = new ArrayList<>();
 
@@ -47,22 +63,54 @@ public class ChatsFragmento extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragmento_chat, container, false);
 
+        db = FirebaseFirestore.getInstance();
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Toast.makeText(getContext(), "No se encontró usuario logueado", Toast.LENGTH_SHORT).show();
+            return view;
+        }
+        currentUserId = user.getUid();
+
         recyclerView = view.findViewById(R.id.recyclerChats);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         listaDeChats = new ArrayList<>();
         chatAdap = new ChatAdap(listaDeChats);
         recyclerView.setAdapter(chatAdap);
 
-        db = FirebaseFirestore.getInstance();
+        quickRv = view.findViewById(R.id.recyclerQuickMenu);
+        quickRv.setLayoutManager(
+                new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false)
+        );
+        quickItems = new ArrayList<>();
+        quickAdapter = new ChatAdapter(quickItems, userId -> {
+            Intent i = new Intent(getActivity(), chatActivity.class);
+            i.putExtra("USER_ID", userId);
+            startActivity(i);
+        });
+        quickRv.setAdapter(quickAdapter);
+        quickRv.setVisibility(View.GONE);
 
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user != null) {
-            currentUserId = user.getUid();
-            escucharCambiosEnChatsOrdenados();
-            configurarSwipeParaEliminar();
-        } else {
-            Toast.makeText(getContext(), "No se encontró usuario logueado", Toast.LENGTH_SHORT).show();
-        }
+        db.collection("Usuario_estado_menu")
+                .whereEqualTo("estado", 1)
+                .get()
+                .addOnSuccessListener(qs -> {
+                    if (qs.isEmpty()) return;
+                    quickRv.setVisibility(View.VISIBLE);
+                    for (DocumentSnapshot st : qs) {
+                        String uid = st.getId();
+                        db.collection("usuarios").document(uid)
+                                .get()
+                                .addOnSuccessListener(uDoc -> {
+                                    String name = uDoc.getString("nombre");
+                                    String photo = uDoc.getString("fotoBase64");
+                                    quickItems.add(new UserMenu(uid, name, photo));
+                                    quickAdapter.notifyItemInserted(quickItems.size() - 1);
+                                });
+                    }
+                });
+
+        escucharCambiosEnChatsOrdenados();
+        configurarSwipeParaEliminar();
 
         return view;
     }
@@ -92,23 +140,23 @@ public class ChatsFragmento extends Fragment {
                     }
 
                     List<Chat_individual> nuevosChats = new ArrayList<>();
-
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
                         String chatId = doc.getId();
-                        String tipoChat = doc.getString("tipo_chat");
                         List<String> eliminados = (List<String>) doc.get("eliminado_por");
                         if (eliminados != null && eliminados.contains(currentUserId)) continue;
 
                         Date timestamp = doc.getDate("ultimo_mensaje_timestamp");
-                        String hora = (timestamp != null) ? new SimpleDateFormat("hh:mm a", Locale.getDefault()).format(timestamp) : "";
+                        String hora = (timestamp != null)
+                                ? new SimpleDateFormat("hh:mm a", Locale.getDefault()).format(timestamp)
+                                : "";
 
+                        String tipoChat = doc.getString("tipo_chat");
                         if ("97XeeFNzro7xurmKwKeh".equals(tipoChat)) {
                             String nombreGrupo = doc.getString("nombre_grupo");
-                            String tipoMensaje = doc.getString("ultimo_mensaje_tipo");
-                            String textoMensaje = doc.getString("ultimo_mensaje");
-
-                            String ultimoMensaje = obtenerPreview(tipoMensaje, textoMensaje);
-
+                            String ultimoMensaje = obtenerPreview(
+                                    doc.getString("ultimo_mensaje_tipo"),
+                                    doc.getString("ultimo_mensaje")
+                            );
                             Chat_individual chat = new Chat_individual(chatId, nombreGrupo, ultimoMensaje, hora);
                             chat.setTimestamp(timestamp);
                             chat.setFotoPerfilBase64(doc.getString("foto_grupo_base64"));
@@ -117,7 +165,6 @@ public class ChatsFragmento extends Fragment {
                             String usuarioA = doc.getString("usuario_a");
                             String usuarioB = doc.getString("usuario_b");
                             String otherUserId = currentUserId.equals(usuarioA) ? usuarioB : usuarioA;
-
                             if (!TextUtils.isEmpty(otherUserId)) {
                                 cargarNombreYCrearChat(chatId, otherUserId, doc, timestamp);
                             }
@@ -125,64 +172,53 @@ public class ChatsFragmento extends Fragment {
                     }
 
                     chatAdap.actualizarListaSinDuplicados(nuevosChats);
-
                     Collections.sort(listaDeChats, (a, b) -> {
-                        Date t1 = a.getTimestamp();
-                        Date t2 = b.getTimestamp();
-                        if (t1 == null || t2 == null) return 0;
-                        return t2.compareTo(t1);
+                        Date t1 = a.getTimestamp(), t2 = b.getTimestamp();
+                        return (t1 == null || t2 == null) ? 0 : t2.compareTo(t1);
                     });
-
                     chatAdap.notifyDataSetChanged();
                 });
     }
 
     private String obtenerPreview(String tipo, String texto) {
         if ("imagen".equals(tipo)) return "📷 Imagen";
-        if ("audio".equals(tipo)) return "🎤 Audio";
+        if ("audio".equals(tipo))  return "🎤 Audio";
         return !TextUtils.isEmpty(texto) ? texto : "Sin mensaje";
     }
 
-    private void cargarNombreYCrearChat(String chatId, String otherUserId, DocumentSnapshot doc, Date timestamp) {
+    private void cargarNombreYCrearChat(String chatId, String otherUserId,
+                                        DocumentSnapshot doc, Date timestamp) {
         if (usuariosPendientes.containsKey(otherUserId)) return;
-
         usuariosPendientes.put(otherUserId, doc);
 
         db.collection("usuarios").document(otherUserId)
                 .get()
                 .addOnSuccessListener(userDoc -> {
                     String nombreUsuario = userDoc.getString("nombre");
-                    String fotoBase64 = userDoc.getString("fotoBase64");
-
-                    String tipoMensaje = doc.getString("ultimo_mensaje_tipo");
-                    String textoMensaje = doc.getString("ultimo_mensaje");
-
-                    String ultimoMensaje = obtenerPreview(tipoMensaje, textoMensaje);
-
+                    String fotoBase64   = userDoc.getString("fotoBase64");
+                    String ultimoMensaje = obtenerPreview(
+                            doc.getString("ultimo_mensaje_tipo"),
+                            doc.getString("ultimo_mensaje")
+                    );
                     String hora = (timestamp != null)
                             ? new SimpleDateFormat("hh:mm a", Locale.getDefault()).format(timestamp)
                             : "";
 
                     Chat_individual chat = new Chat_individual(
-                            chatId,
-                            otherUserId,
+                            chatId, otherUserId,
                             nombreUsuario != null ? nombreUsuario : "Usuario",
-                            ultimoMensaje,
-                            hora
+                            ultimoMensaje, hora
                     );
                     chat.setTimestamp(timestamp);
                     chat.setFotoPerfilBase64(fotoBase64);
-
                     bufferChatsIndividuales.add(chat);
 
                     if (bufferChatsIndividuales.size() == usuariosPendientes.size()) {
                         chatAdap.actualizarListaSinDuplicados(bufferChatsIndividuales);
-                        Collections.sort(listaDeChats, (a, b) -> {
-                            Date t1 = a.getTimestamp();
-                            Date t2 = b.getTimestamp();
-                            if (t1 == null || t2 == null) return 0;
-                            return t2.compareTo(t1);
-                        });
+                        Collections.sort(listaDeChats, (a, b) ->
+                                (a.getTimestamp()==null||b.getTimestamp()==null)?0:
+                                        b.getTimestamp().compareTo(a.getTimestamp())
+                        );
                         chatAdap.notifyDataSetChanged();
                         usuariosPendientes.clear();
                         bufferChatsIndividuales.clear();
@@ -191,25 +227,30 @@ public class ChatsFragmento extends Fragment {
     }
 
     private void configurarSwipeParaEliminar() {
-        ItemTouchHelper.SimpleCallback simpleCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
-            @Override
-            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
-                return false;
-            }
-
-            @Override
-            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                int position = viewHolder.getAdapterPosition();
-                Chat_individual chat = listaDeChats.get(position);
-                new AlertDialog.Builder(requireContext())
-                        .setTitle("Eliminar chat")
-                        .setMessage("¿Estás seguro que deseas eliminar este chat?")
-                        .setPositiveButton("Eliminar", (dialog, which) -> eliminarChat(chat.getChatId()))
-                        .setNegativeButton("Cancelar", (dialog, which) -> chatAdap.notifyItemChanged(position))
-                        .setCancelable(false)
-                        .show();
-            }
-        };
+        ItemTouchHelper.SimpleCallback simpleCallback =
+                new ItemTouchHelper.SimpleCallback(0,
+                        ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+                    @Override
+                    public boolean onMove(@NonNull RecyclerView rv,
+                                          @NonNull RecyclerView.ViewHolder vh,
+                                          @NonNull RecyclerView.ViewHolder target) {
+                        return false;
+                    }
+                    @Override
+                    public void onSwiped(@NonNull RecyclerView.ViewHolder vh, int direction) {
+                        int pos = vh.getAdapterPosition();
+                        Chat_individual chat = listaDeChats.get(pos);
+                        new AlertDialog.Builder(requireContext())
+                                .setTitle("Eliminar chat")
+                                .setMessage("¿Seguro que deseas eliminar éste chat?")
+                                .setPositiveButton("Eliminar", (d, w) ->
+                                        eliminarChat(chat.getChatId()))
+                                .setNegativeButton("Cancelar", (d, w) ->
+                                        chatAdap.notifyItemChanged(pos))
+                                .setCancelable(false)
+                                .show();
+                    }
+                };
         new ItemTouchHelper(simpleCallback).attachToRecyclerView(recyclerView);
     }
 
@@ -218,17 +259,18 @@ public class ChatsFragmento extends Fragment {
                 .update("eliminado_por", FieldValue.arrayUnion(currentUserId))
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "Chat ocultado correctamente");
+
                     db.collection("notificacion")
                             .whereEqualTo("chat_id", chatId)
                             .get()
-                            .addOnSuccessListener(querySnapshot -> {
-                                for (DocumentSnapshot doc : querySnapshot) {
-                                    doc.getReference().delete();
-                                }
-                                Log.d(TAG, "Todos los mensajes del chat eliminados");
+                            .addOnSuccessListener(qs -> {
+                                for (DocumentSnapshot d : qs) d.getReference().delete();
+                                Log.d(TAG, "Mensajes del chat eliminados");
                             })
-                            .addOnFailureListener(e -> Log.e(TAG, "Error al eliminar mensajes del chat", e));
+                            .addOnFailureListener(e ->
+                                    Log.e(TAG, "Error eliminando mensajes", e));
                 })
-                .addOnFailureListener(e -> Log.e(TAG, "Error al ocultar el chat", e));
+                .addOnFailureListener(e ->
+                        Log.e(TAG, "Error ocultando chat", e));
     }
 }

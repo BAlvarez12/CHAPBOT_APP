@@ -46,7 +46,7 @@ public class ChatAdap extends RecyclerView.Adapter<ChatAdap.ChatViewHolder> {
         holder.tvUltimoMensaje.setText(chat.getUltimoMensaje() != null ? chat.getUltimoMensaje() : "Sin mensaje");
         holder.tvHora.setText(chat.getHora() != null ? chat.getHora() : "");
 
-        // Mostrar imagen de perfil desde Base64 si está disponible
+
         if (chat.getFotoPerfilBase64() != null && !chat.getFotoPerfilBase64().isEmpty()) {
             try {
                 byte[] decodedBytes = Base64.decode(chat.getFotoPerfilBase64(), Base64.DEFAULT);
@@ -83,24 +83,21 @@ public class ChatAdap extends RecyclerView.Adapter<ChatAdap.ChatViewHolder> {
     }
 
     public void actualizarListaSinDuplicados(List<Chat_individual> nuevosChats) {
-        // 🔍 Crear un mapa temporal para buscar por ID
+
         Map<String, Chat_individual> mapa = new HashMap<>();
 
-        // 1️⃣ Agrega los existentes
         for (Chat_individual chat : listaDeChats) {
             mapa.put(chat.getChatId(), chat);
         }
 
-        // 2️⃣ Agrega o reemplaza con los nuevos
         for (Chat_individual nuevo : nuevosChats) {
             mapa.put(nuevo.getChatId(), nuevo);
         }
 
-        // 3️⃣ Limpia y agrega todos en orden
+
         listaDeChats.clear();
         listaDeChats.addAll(mapa.values());
 
-        // 4️⃣ Ordena por timestamp descendente
         listaDeChats.sort((a, b) -> {
             if (a.getTimestamp() == null || b.getTimestamp() == null) return 0;
             return Objects.requireNonNull(b.getTimestamp()).compareTo(a.getTimestamp());
