@@ -2,5 +2,5 @@
     <item
         android:id="@+id/navigation_chats"
         android:icon="@drawable/ic_chats"
-        android:title="Chats"/>
+        android:title="Restaurantes"/>
 </menu>

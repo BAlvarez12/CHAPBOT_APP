@@ -84,10 +84,6 @@ public class RegisterActivity extends AppCompatActivity {
             Toast.makeText(this, "Completa todos los campos", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (imageUri == null) {
-            Toast.makeText(this, "Por favor, selecciona una foto de perfil", Toast.LENGTH_SHORT).show();
-            return;
-        }
         progressBar.setVisibility(View.VISIBLE);
 
         mAuth.createUserWithEmailAndPassword(email, password)
